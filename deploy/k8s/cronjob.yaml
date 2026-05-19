@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kpi-refresh
+  namespace: supply-chain
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: kpi-refresh
+              image: curlimages/curl:latest
+              command:
+                - curl
+                - --fail
+                - --silent
+                - --show-error
+                - -X
+                - POST
+                - http://supply-chain-agent/agent/invoke
+                - -H
+                - "Content-Type: application/json"
+                - -d
+                - '{"task":"refresh_executive_kpis"}'

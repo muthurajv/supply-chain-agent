@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supply-chain-agent
+  namespace: supply-chain
+  labels:
+    app: supply-chain-agent
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: supply-chain-agent
+  template:
+    metadata:
+      labels:
+        app: supply-chain-agent
+    spec:
+      containers:
+        - name: agent
+          image: your-acr.azurecr.io/supply-chain-agent:latest
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          envFrom:
+            - configMapRef:
+                name: supply-chain-agent-config
+            - secretRef:
+                name: supply-chain-agent-secrets
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

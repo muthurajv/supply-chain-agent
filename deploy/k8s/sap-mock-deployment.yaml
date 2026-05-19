@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sap-mock
+  namespace: supply-chain
+  labels:
+    app: sap-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sap-mock
+  template:
+    metadata:
+      labels:
+        app: sap-mock
+    spec:
+      containers:
+        - name: sap-mock
+          image: your-acr.azurecr.io/sap-mock:latest
+          ports:
+            - containerPort: 8001
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          env:
+            - name: SAP_MOCK_DATABASE_URL
+              value: "sqlite+aiosqlite:///./sap_mock.db"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 30
