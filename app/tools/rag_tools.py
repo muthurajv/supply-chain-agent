@@ -3,40 +3,37 @@ from __future__ import annotations
 from datetime import date
 from typing import Optional
 
-from azure.core.credentials import AzureKeyCredential
-from azure.search.documents.aio import SearchClient
-from azure.search.documents.models import VectorizableTextQuery
+import httpx
 from langchain_core.tools import tool
 
 from app.config import get_settings
 from app.observability.attributes import Attr
 from app.observability.spans import rag_span
 
-_policy_client: SearchClient | None = None
-_episodic_client: SearchClient | None = None
+_API_VERSION = "2024-05-01-preview"
+_http_client: httpx.AsyncClient | None = None
 
 
-def _get_search_client(index_name: str) -> SearchClient:
-    settings = get_settings()
-    return SearchClient(
-        endpoint=settings.azure_search_endpoint,
-        index_name=index_name,
-        credential=AzureKeyCredential(settings.azure_search_key),
-    )
+def _get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.AsyncClient(timeout=15.0)
+    return _http_client
 
 
-def get_policy_client() -> SearchClient:
-    global _policy_client
-    if _policy_client is None:
-        _policy_client = _get_search_client(get_settings().azure_search_index_policy)
-    return _policy_client
+async def _search(index_name: str, query: str, filter_expr: str | None, top_k: int, select: list[str]) -> list[dict]:
+    """Call Azure AI Search REST API directly using a persistent httpx client."""
+    s = get_settings()
+    url = f"{s.azure_search_endpoint}/indexes/{index_name}/docs/search"
+    headers = {"api-key": s.azure_search_key, "Content-Type": "application/json"}
+    body: dict = {"search": query, "top": top_k, "select": ",".join(select)}
+    if filter_expr:
+        body["filter"] = filter_expr
 
-
-def get_episodic_client() -> SearchClient:
-    global _episodic_client
-    if _episodic_client is None:
-        _episodic_client = _get_search_client(get_settings().azure_search_index_episodic)
-    return _episodic_client
+    client = _get_http_client()
+    resp = await client.post(url, headers=headers, json=body, params={"api-version": _API_VERSION})
+    resp.raise_for_status()
+    return resp.json().get("value", [])
 
 
 @tool
@@ -45,7 +42,7 @@ async def retrieve_policy_docs(
     top_k: int = 5,
     doc_type: Optional[str] = None,
 ) -> list[dict]:
-    """Retrieve relevant policy documents, SOPs, or contracts using hybrid search.
+    """Retrieve relevant policy documents, SOPs, or contracts using keyword search.
 
     Args:
         query: Natural language search query
@@ -58,32 +55,21 @@ async def retrieve_policy_docs(
         if doc_type:
             filter_expr = f"doc_type eq '{doc_type}' and {filter_expr}"
 
-        vector_query = VectorizableTextQuery(
-            text=query,
-            k_nearest_neighbors=top_k,
-            fields="content_vector",
-        )
+        index_name = get_settings().azure_search_index_policy
+        raw = await _search(index_name, query, filter_expr, top_k,
+                            ["doc_id", "title", "content", "doc_type", "effective_date"])
 
-        client = get_policy_client()
-        async with client:
-            results = await client.search(
-                search_text=query,
-                vector_queries=[vector_query],
-                filter=filter_expr,
-                top=top_k,
-                select=["doc_id", "title", "content", "doc_type", "effective_date"],
-            )
-
-        docs = []
-        async for result in results:
-            docs.append({
-                "doc_id": result.get("doc_id", ""),
-                "title": result.get("title", ""),
-                "content": result.get("content", ""),
-                "doc_type": result.get("doc_type", ""),
-                "effective_date": result.get("effective_date", ""),
-                "score": result.get("@search.score", 0.0),
-            })
+        docs = [
+            {
+                "doc_id": r.get("doc_id", ""),
+                "title": r.get("title", ""),
+                "content": r.get("content", ""),
+                "doc_type": r.get("doc_type", ""),
+                "effective_date": r.get("effective_date", ""),
+                "score": r.get("@search.score", 0.0),
+            }
+            for r in raw
+        ]
 
         span.set_attribute(Attr.RAG_RESULT_COUNT, len(docs))
         return docs
@@ -104,32 +90,20 @@ async def retrieve_episodic_memory(
     """
     with rag_span(query, top_k, [memory_type] if memory_type else None) as span:
         filter_expr = f"memory_type eq '{memory_type}'" if memory_type else None
+        index_name = get_settings().azure_search_index_episodic
+        raw = await _search(index_name, query, filter_expr, top_k,
+                            ["record_id", "content", "memory_type", "created_at"])
 
-        vector_query = VectorizableTextQuery(
-            text=query,
-            k_nearest_neighbors=top_k,
-            fields="content_vector",
-        )
-
-        client = get_episodic_client()
-        async with client:
-            results = await client.search(
-                search_text=query,
-                vector_queries=[vector_query],
-                filter=filter_expr,
-                top=top_k,
-                select=["record_id", "content", "memory_type", "created_at"],
-            )
-
-        docs = []
-        async for result in results:
-            docs.append({
-                "record_id": result.get("record_id", ""),
-                "content": result.get("content", ""),
-                "memory_type": result.get("memory_type", ""),
-                "created_at": result.get("created_at", ""),
-                "score": result.get("@search.score", 0.0),
-            })
+        docs = [
+            {
+                "record_id": r.get("record_id", ""),
+                "content": r.get("content", ""),
+                "memory_type": r.get("memory_type", ""),
+                "created_at": r.get("created_at", ""),
+                "score": r.get("@search.score", 0.0),
+            }
+            for r in raw
+        ]
 
         span.set_attribute(Attr.RAG_RESULT_COUNT, len(docs))
         return docs
