@@ -9,7 +9,7 @@ from langgraph.types import Command, interrupt
 
 from app.config import get_settings
 from app.observability.attributes import Attr
-from app.observability.spans import agent_span, policy_evaluation_span
+from app.observability.spans import agent_span, policy_evaluation_span, tool_span
 from app.policy.evaluator import evaluate_rules
 from app.policy.extraction import extract_rules
 from app.policy.schema import PolicyDecision, PolicyRule
@@ -52,27 +52,29 @@ _FALLBACK_RULES: list[PolicyRule] = [
 
 
 async def _write_approval_queue(proposal, decision: PolicyDecision) -> str:
-    settings = get_settings()
-    client = CosmosClient.from_connection_string(settings.cosmos_connection_string)
-    try:
-        db = client.get_database_client(settings.cosmos_database)
-        container = db.get_container_client(settings.cosmos_container_approvals)
-        queue_id = f"APQ-{uuid.uuid4().hex[:8].upper()}"
-        await container.upsert_item({
-            "id": queue_id,
-            "material_id": proposal.material_id,
-            "vendor_id": proposal.vendor_id,
-            "estimated_cost": proposal.estimated_cost,
-            "recommended_qty": proposal.recommended_qty,
-            "urgency": proposal.urgency,
-            "rule_id_fired": decision.rule_id_fired,
-            "rationale": decision.rationale,
-            "status": "pending",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        })
-        return queue_id
-    finally:
-        await client.close()
+    with tool_span("cosmos.write_approval_queue") as span:
+        settings = get_settings()
+        client = CosmosClient.from_connection_string(settings.cosmos_connection_string)
+        try:
+            db = client.get_database_client(settings.cosmos_database)
+            container = db.get_container_client(settings.cosmos_container_approvals)
+            queue_id = f"APQ-{uuid.uuid4().hex[:8].upper()}"
+            await container.upsert_item({
+                "id": queue_id,
+                "material_id": proposal.material_id,
+                "vendor_id": proposal.vendor_id,
+                "estimated_cost": proposal.estimated_cost,
+                "recommended_qty": proposal.recommended_qty,
+                "urgency": proposal.urgency,
+                "rule_id_fired": decision.rule_id_fired,
+                "rationale": decision.rationale,
+                "status": "pending",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            span.set_attribute(Attr.POLICY_OUTCOME, decision.outcome)
+            return queue_id
+        finally:
+            await client.close()
 
 
 async def policy_node(state: GraphState) -> Command:

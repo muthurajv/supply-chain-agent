@@ -12,6 +12,8 @@ from pydantic import BaseModel
 from app.agents.graph import get_graph
 from app.config import get_settings
 from app.memory.checkpointer import CosmosDBCheckpointer
+from app.observability.attributes import Attr
+from app.observability.spans import tool_span
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 
@@ -94,7 +96,9 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
         item["status"] = "approved" if payload.approved else "rejected"
         item["decided_at"] = datetime.now(timezone.utc).isoformat()
         item["decision_reason"] = payload.reason
-        await container.upsert_item(item)
+        with tool_span("cosmos.update_approval") as span:
+            await container.upsert_item(item)
+            span.set_attribute(Attr.POLICY_OUTCOME, item["status"])
 
         # Resume the paused LangGraph thread so the policy agent can continue.
         thread_id = item.get("thread_id")
@@ -102,10 +106,12 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
             checkpointer = CosmosDBCheckpointer()
             graph = get_graph(checkpointer=checkpointer)
             config = {"configurable": {"thread_id": thread_id}}
-            await graph.ainvoke(
-                Command(resume={"approved": payload.approved, "reason": payload.reason}),
-                config=config,
-            )
+            with tool_span("graph.resume") as resume_span:
+                await graph.ainvoke(
+                    Command(resume={"approved": payload.approved, "reason": payload.reason}),
+                    config=config,
+                )
+                resume_span.set_attribute(Attr.AGENT_DECISION, item["status"])
 
         return {
             "approval_id": approval_id,
