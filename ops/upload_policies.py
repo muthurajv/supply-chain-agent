@@ -38,7 +38,7 @@ from openai import AzureOpenAI
 from app.config import get_settings
 
 POLICIES_DIR = Path(__file__).parent.parent / "policies"
-EMBEDDING_DIMENSIONS = 3072  # text-embedding-3-large
+EMBEDDING_DIMENSIONS = 1536  # text-embedding-3-small
 
 
 def get_embedding(client: AzureOpenAI, text: str, deployment: str) -> list[float]:

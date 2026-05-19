@@ -5,7 +5,15 @@
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -m pytest tests/test_sap_mock.py::test_get_inventory -v --tb=long)",
       "Bash(python -m pytest tests/test_sap_mock.py -v --tb=short)",
-      "Bash(python -m pytest tests/test_sap_mock.py -v)"
+      "Bash(python -m pytest tests/test_sap_mock.py -v)",
+      "Bash(.venv/Scripts/python.exe ops/upload_policies.py)",
+      "Bash(az cosmosdb show *)",
+      "Bash(az cosmosdb keys list *)",
+      "Bash(az cosmosdb sql database *)",
+      "Bash(az cosmosdb *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
