@@ -1,0 +1,97 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 3089 >>
+stream
+BT /F2 16 Tf 72.0 720.0 Td (Purchase Requisition Approval Policy) Tj ET
+BT /F1 10 Tf 72.0 692.0 Td (Document ID: POL-PROC-001   |   Type: POLICY   |   Effective: 2024-01-01) Tj ET
+BT /F2 11 Tf 72.0 662.0 Td (PURCHASE REQUISITION APPROVAL POLICY) Tj ET
+BT /F1 11 Tf 72.0 646.0 Td (Document ID: POL-PROC-001) Tj ET
+BT /F1 11 Tf 72.0 630.0 Td (Version: 3.1) Tj ET
+BT /F1 11 Tf 72.0 614.0 Td (Effective Date: 2024-01-01) Tj ET
+BT /F1 11 Tf 72.0 598.0 Td (Owner: Chief Procurement Officer) Tj ET
+BT /F2 11 Tf 72.0 574.0 Td (1. PURPOSE) Tj ET
+BT /F1 11 Tf 72.0 558.0 Td (This policy defines the approval thresholds and routing rules for all purchase) Tj ET
+BT /F1 11 Tf 72.0 542.0 Td (requisitions \(PRs\) raised through the supply chain management system. It applies) Tj ET
+BT /F1 11 Tf 72.0 526.0 Td (to all procurement of materials, components, and indirect goods.) Tj ET
+BT /F2 11 Tf 72.0 502.0 Td (2. APPROVAL THRESHOLDS) Tj ET
+BT /F2 11 Tf 72.0 478.0 Td (2.1 Auto-Approval \(Preferred Vendor\)) Tj ET
+BT /F1 11 Tf 72.0 462.0 Td (Purchase requisitions with an estimated cost below $5,000 submitted against a) Tj ET
+BT /F1 11 Tf 72.0 446.0 Td (preferred vendor are pre-approved and require no further review. The system may) Tj ET
+BT /F1 11 Tf 72.0 430.0 Td (proceed to issue a purchase order automatically.) Tj ET
+BT /F2 11 Tf 72.0 406.0 Td (2.2 Manager Approval \($5,000 \20023 $25,000\)) Tj ET
+BT /F1 11 Tf 72.0 390.0 Td (Purchase requisitions with an estimated cost between $5,000 and $25,000) Tj ET
+BT /F1 11 Tf 72.0 374.0 Td (\(inclusive\) require manager approval before a purchase order is issued. The) Tj ET
+BT /F1 11 Tf 72.0 358.0 Td (procurement system must route the requisition to the responsible manager and) Tj ET
+BT /F1 11 Tf 72.0 342.0 Td (suspend processing until a decision is recorded.) Tj ET
+BT /F2 11 Tf 72.0 318.0 Td (2.3 Executive Approval \(Above $25,000\)) Tj ET
+BT /F1 11 Tf 72.0 302.0 Td (Purchase requisitions with an estimated cost exceeding $25,000 must follow the) Tj ET
+BT /F1 11 Tf 72.0 286.0 Td (executive approval process and cannot be processed through the automated) Tj ET
+BT /F1 11 Tf 72.0 270.0 Td (procurement workflow. Such requisitions are denied by the system and must be re-) Tj ET
+BT /F1 11 Tf 72.0 254.0 Td (submitted through the Capital Expenditure \(CapEx\) review board.) Tj ET
+BT /F2 11 Tf 72.0 230.0 Td (3. VENDOR CONSTRAINTS) Tj ET
+BT /F2 11 Tf 72.0 206.0 Td (3.1 Preferred Vendor Requirement) Tj ET
+BT /F1 11 Tf 72.0 190.0 Td (For standard catalogue materials \(urgency level: low or medium\), procurement must) Tj ET
+BT /F1 11 Tf 72.0 174.0 Td (use a preferred vendor. Purchase requisitions below $5,000 using a non-preferred) Tj ET
+BT /F1 11 Tf 72.0 158.0 Td (vendor require manager approval even if they would otherwise be auto-approved.) Tj ET
+BT /F2 11 Tf 72.0 134.0 Td (3.2 Forbidden Vendors) Tj ET
+BT /F1 11 Tf 72.0 118.0 Td (Vendors placed on the Restricted Vendor List \(RVL\) are forbidden from receiving) Tj ET
+BT /F1 11 Tf 72.0 102.0 Td (purchase orders. Any requisition naming an RVL vendor must be denied immediately) Tj ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Contents 3 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+5 0 obj
+<< /Length 1530 >>
+stream
+BT /F1 11 Tf 72.0 720.0 Td (regardless of amount.) Tj ET
+BT /F2 11 Tf 72.0 696.0 Td (4. URGENCY OVERRIDES) Tj ET
+BT /F2 11 Tf 72.0 672.0 Td (4.1 Critical Urgency) Tj ET
+BT /F1 11 Tf 72.0 656.0 Td (Requisitions classified as critical urgency \(on-hand stock is more than twice) Tj ET
+BT /F1 11 Tf 72.0 640.0 Td (below safety stock level\) may be escalated to manager approval regardless of) Tj ET
+BT /F1 11 Tf 72.0 624.0 Td (amount, bypassing the standard auto-approval threshold. The manager must respond) Tj ET
+BT /F1 11 Tf 72.0 608.0 Td (within 4 business hours.) Tj ET
+BT /F2 11 Tf 72.0 584.0 Td (4.2 High Urgency) Tj ET
+BT /F1 11 Tf 72.0 568.0 Td (Requisitions classified as high urgency follow standard thresholds but are) Tj ET
+BT /F1 11 Tf 72.0 552.0 Td (flagged for expedited review.) Tj ET
+BT /F2 11 Tf 72.0 528.0 Td (5. AUDIT REQUIREMENTS) Tj ET
+BT /F1 11 Tf 72.0 512.0 Td (Every approval decision \20024 auto-approved, manager-approved, or denied \20024 must be) Tj ET
+BT /F1 11 Tf 72.0 496.0 Td (recorded with the rule that triggered it, the requisition amount, and the) Tj ET
+BT /F1 11 Tf 72.0 480.0 Td (applicable threshold. This record constitutes the audit artifact for compliance) Tj ET
+BT /F1 11 Tf 72.0 464.0 Td (purposes.) Tj ET
+BT /F2 11 Tf 72.0 440.0 Td (6. POLICY REVIEW) Tj ET
+BT /F1 11 Tf 72.0 424.0 Td (This policy is reviewed annually by the Chief Procurement Officer and updated as) Tj ET
+BT /F1 11 Tf 72.0 408.0 Td (business conditions change. The current version supersedes all prior versions.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003295 00000 n 
+0000003431 00000 n 
+0000005013 00000 n 
+0000005149 00000 n 
+0000005212 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+5261
+%%EOF
