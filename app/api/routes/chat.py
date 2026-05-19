@@ -3,9 +3,10 @@ import uuid
 from fastapi import APIRouter, Request, Depends
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
+from langgraph.checkpoint.memory import MemorySaver
 from app.agents.graph import get_graph
 from app.api.middleware.auth import validate_token
-from app.memory.checkpointer import CosmosDBCheckpointer
+from app.config import get_settings
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -32,7 +33,11 @@ async def chat(
     thread_id = payload.thread_id or str(uuid.uuid4())
     trace_id = getattr(request.state, "trace_id", "unknown")
 
-    checkpointer = CosmosDBCheckpointer()
+    if get_settings().app_env == "development":
+        checkpointer = MemorySaver()
+    else:
+        from app.memory.checkpointer import CosmosDBCheckpointer
+        checkpointer = CosmosDBCheckpointer()
     graph = get_graph(checkpointer=checkpointer)
 
     initial_state = {

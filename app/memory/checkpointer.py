@@ -2,6 +2,7 @@
 
 Enables paused approvals to resume hours later with full graph state restored.
 """
+import base64
 import json
 from typing import Any, Iterator, AsyncIterator, Optional, Tuple
 from datetime import datetime
@@ -16,6 +17,28 @@ from langgraph.checkpoint.base import (
 )
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from app.config import get_settings
+
+
+def _sanitize(obj: Any) -> Any:
+    """Recursively convert bytes values to base64 strings for Cosmos JSON storage."""
+    if isinstance(obj, bytes):
+        return {"__b64__": base64.b64encode(obj).decode()}
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(v) for v in obj]
+    return obj
+
+
+def _restore(obj: Any) -> Any:
+    """Reverse _sanitize — convert base64 markers back to bytes."""
+    if isinstance(obj, dict):
+        if set(obj.keys()) == {"__b64__"}:
+            return base64.b64decode(obj["__b64__"])
+        return {k: _restore(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_restore(v) for v in obj]
+    return obj
 
 
 class CosmosDBCheckpointer(BaseCheckpointSaver):
@@ -63,7 +86,8 @@ class CosmosDBCheckpointer(BaseCheckpointSaver):
         except cosmos_exceptions.CosmosResourceNotFoundError:
             return None
 
-        checkpoint = self.serde.loads_typed((item["type"], item["checkpoint"]))
+        raw = _restore(item["checkpoint"])
+        checkpoint = self.serde.loads_typed((item["type"], raw))
         metadata = CheckpointMetadata(**json.loads(item.get("metadata", "{}")))
         config_out = {
             "configurable": {
@@ -92,18 +116,20 @@ class CosmosDBCheckpointer(BaseCheckpointSaver):
         checkpoint_id = checkpoint["id"]
         parent_checkpoint_id = config["configurable"].get("checkpoint_id")
         type_, serialized = self.serde.dumps_typed(checkpoint)
+        # Cosmos DB cannot store raw bytes — encode all bytes recursively.
+        checkpoint_stored = _sanitize(serialized)
 
         container = await self._get_container()
-        item = {
+        item = _sanitize({
             "id": f"{thread_id}:{checkpoint_id}",
             "thread_id": thread_id,
             "checkpoint_id": checkpoint_id,
             "parent_checkpoint_id": parent_checkpoint_id,
             "type": type_,
-            "checkpoint": serialized,
+            "checkpoint": checkpoint_stored,
             "metadata": json.dumps(dict(metadata)),
             "ts": datetime.utcnow().isoformat(),
-        }
+        })
         await container.upsert_item(item)
         return {
             "configurable": {
