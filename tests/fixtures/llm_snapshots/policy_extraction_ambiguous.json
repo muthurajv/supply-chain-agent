@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "rule_id": "POL-AMB-R1",
+      "description": "Large purchases require human review — threshold unspecified",
+      "condition_field": "estimated_cost",
+      "operator": ">",
+      "threshold": null,
+      "vendor_constraint": null,
+      "on_violation": "needs_human",
+      "source_excerpt": "Large purchases require approval from a manager."
+    }
+  ]
+}

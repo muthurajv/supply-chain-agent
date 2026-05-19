@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "rule_id": "POL-MIX-R1",
+      "description": "Auto-approve V-7 preferred vendor PRs below $10,000",
+      "condition_field": "estimated_cost",
+      "operator": "<",
+      "threshold": 10000.0,
+      "vendor_constraint": "V-7",
+      "on_violation": "auto_approved",
+      "source_excerpt": "Preferred vendor V-7 purchase requisitions below $10,000 are pre-approved without review."
+    },
+    {
+      "rule_id": "POL-MIX-R2",
+      "description": "Deny PRs exceeding emergency spend cap of $50,000",
+      "condition_field": "estimated_cost",
+      "operator": ">",
+      "threshold": 50000.0,
+      "vendor_constraint": null,
+      "on_violation": "denied",
+      "source_excerpt": "No purchase requisition may exceed the emergency spend cap of $50,000 without board sign-off."
+    }
+  ]
+}
