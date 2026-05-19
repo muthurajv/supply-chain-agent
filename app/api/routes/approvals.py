@@ -1,0 +1,117 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Literal
+
+from azure.cosmos.aio import CosmosClient
+from azure.cosmos import exceptions as cosmos_exceptions
+from fastapi import APIRouter, HTTPException
+from langgraph.types import Command
+from pydantic import BaseModel
+
+from app.agents.graph import get_graph
+from app.config import get_settings
+from app.memory.checkpointer import CosmosDBCheckpointer
+
+router = APIRouter(prefix="/approvals", tags=["approvals"])
+
+
+class ApprovalDecision(BaseModel):
+    approved: bool
+    reason: str = ""
+
+
+async def _get_approval_container():
+    s = get_settings()
+    client = CosmosClient.from_connection_string(s.cosmos_connection_string)
+    db = client.get_database_client(s.cosmos_database)
+    return client, db.get_container_client(s.cosmos_container_approvals)
+
+
+@router.get("")
+async def list_pending_approvals():
+    """List all pending approval queue items."""
+    client, container = await _get_approval_container()
+    try:
+        items = []
+        async for item in container.query_items(
+            query="SELECT * FROM c WHERE c.status = 'pending' ORDER BY c.created_at DESC",
+        ):
+            items.append({
+                "id": item["id"],
+                "material_id": item.get("material_id"),
+                "vendor_id": item.get("vendor_id"),
+                "estimated_cost": item.get("estimated_cost"),
+                "urgency": item.get("urgency"),
+                "rule_id_fired": item.get("rule_id_fired"),
+                "rationale": item.get("rationale"),
+                "created_at": item.get("created_at"),
+            })
+        return {"approvals": items, "count": len(items)}
+    finally:
+        await client.close()
+
+
+@router.get("/{approval_id}")
+async def get_approval(approval_id: str):
+    """Get a specific approval queue item."""
+    s = get_settings()
+    client = CosmosClient.from_connection_string(s.cosmos_connection_string)
+    try:
+        db = client.get_database_client(s.cosmos_database)
+        container = db.get_container_client(s.cosmos_container_approvals)
+        item = await container.read_item(item=approval_id, partition_key=approval_id)
+        return item
+    except cosmos_exceptions.CosmosResourceNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Approval '{approval_id}' not found.")
+    finally:
+        await client.close()
+
+
+@router.post("/{approval_id}/decide")
+async def decide_approval(approval_id: str, payload: ApprovalDecision):
+    """Record a human approval decision and resume the paused graph.
+
+    Resuming the LangGraph thread sends Command(resume=...) which continues
+    the policy agent from after the interrupt() call (§3.3 step 5).
+    """
+    s = get_settings()
+    cosmos_client = CosmosClient.from_connection_string(s.cosmos_connection_string)
+
+    try:
+        db = cosmos_client.get_database_client(s.cosmos_database)
+        container = db.get_container_client(s.cosmos_container_approvals)
+
+        try:
+            item = await container.read_item(item=approval_id, partition_key=approval_id)
+        except cosmos_exceptions.CosmosResourceNotFoundError:
+            raise HTTPException(status_code=404, detail=f"Approval '{approval_id}' not found.")
+
+        if item.get("status") != "pending":
+            raise HTTPException(status_code=409, detail=f"Approval '{approval_id}' is already {item['status']}.")
+
+        # Update the queue record.
+        item["status"] = "approved" if payload.approved else "rejected"
+        item["decided_at"] = datetime.now(timezone.utc).isoformat()
+        item["decision_reason"] = payload.reason
+        await container.upsert_item(item)
+
+        # Resume the paused LangGraph thread so the policy agent can continue.
+        thread_id = item.get("thread_id")
+        if thread_id:
+            checkpointer = CosmosDBCheckpointer()
+            graph = get_graph(checkpointer=checkpointer)
+            config = {"configurable": {"thread_id": thread_id}}
+            await graph.ainvoke(
+                Command(resume={"approved": payload.approved, "reason": payload.reason}),
+                config=config,
+            )
+
+        return {
+            "approval_id": approval_id,
+            "status": item["status"],
+            "decided_at": item["decided_at"],
+            "thread_resumed": thread_id is not None,
+        }
+    finally:
+        await cosmos_client.close()

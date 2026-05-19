@@ -1,0 +1,84 @@
+[project]
+name = "supply-chain-agent"
+version = "1.0.0"
+description = "Agentic AI supply chain POC — supervisor + 6 specialist agents on LangGraph"
+requires-python = ">=3.11"
+dependencies = [
+    # Agent framework
+    "langgraph>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-community>=0.3.0",
+    # Azure services
+    "azure-search-documents>=11.6.0",
+    "azure-cosmos>=4.7.0",
+    "azure-identity>=1.18.0",
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    # HTTP client
+    "httpx>=0.27.0",
+    "requests>=2.32.0",
+    # SAP mock database
+    "sqlalchemy>=2.0.0",
+    "aiosqlite>=0.20.0",
+    # Settings / validation
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    # Auth
+    "python-jose[cryptography]>=3.3.0",
+    # Observability
+    "opentelemetry-sdk>=1.28.0",
+    "opentelemetry-api>=1.28.0",
+    "opentelemetry-instrumentation-fastapi>=0.49b0",
+    "opentelemetry-instrumentation-httpx>=0.49b0",
+    "opentelemetry-instrumentation-requests>=0.49b0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.49b0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.28.0",
+    "opentelemetry-exporter-prometheus>=0.49b0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=6.0.0",
+    "httpx>=0.27.0",
+]
+dev = [
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app", "sap_mock"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "--tb=short"
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 100
+include = ["app/policy/evaluator.py"]
