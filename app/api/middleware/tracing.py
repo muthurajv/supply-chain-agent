@@ -1,7 +1,7 @@
 """Request-scoped trace context middleware."""
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
-from opentelemetry import trace, context as otel_context
+from opentelemetry import trace
 from opentelemetry.propagate import extract
 
 
