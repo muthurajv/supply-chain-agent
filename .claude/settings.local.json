@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/unit/test_policy_evaluator.py tests/test_policy_agent.py -v --tb=short)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/test_sap_mock.py::test_get_inventory -v --tb=long)",
+      "Bash(python -m pytest tests/test_sap_mock.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_sap_mock.py -v)"
+    ]
+  }
+}
