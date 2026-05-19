@@ -1,0 +1,104 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+2 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+3 0 obj
+<< /Length 3282 >>
+stream
+BT /F2 16 Tf 72.0 720.0 Td (Standard Operating Procedure: Automated Procurement) Tj ET
+BT /F2 16 Tf 72.0 698.0 Td (Workflow) Tj ET
+BT /F1 10 Tf 72.0 670.0 Td (Document ID: SOP-PROC-001   |   Type: SOP   |   Effective: 2024-03-01) Tj ET
+BT /F2 11 Tf 72.0 640.0 Td (STANDARD OPERATING PROCEDURE: AUTOMATED PROCUREMENT WORKFLOW) Tj ET
+BT /F1 11 Tf 72.0 624.0 Td (Document ID: SOP-PROC-001) Tj ET
+BT /F1 11 Tf 72.0 608.0 Td (Version: 2.0) Tj ET
+BT /F1 11 Tf 72.0 592.0 Td (Effective Date: 2024-03-01) Tj ET
+BT /F1 11 Tf 72.0 576.0 Td (Owner: Procurement Operations Lead) Tj ET
+BT /F2 11 Tf 72.0 552.0 Td (1. PURPOSE) Tj ET
+BT /F1 11 Tf 72.0 536.0 Td (This SOP describes the end-to-end steps of the automated procurement workflow) Tj ET
+BT /F1 11 Tf 72.0 520.0 Td (executed by the supply chain AI system. It is intended for operations staff who) Tj ET
+BT /F1 11 Tf 72.0 504.0 Td (monitor the system and for auditors reviewing procurement decisions.) Tj ET
+BT /F2 11 Tf 72.0 480.0 Td (2. WORKFLOW OVERVIEW) Tj ET
+BT /F1 11 Tf 72.0 464.0 Td (The automated procurement workflow is triggered when the system detects that on-) Tj ET
+BT /F1 11 Tf 72.0 448.0 Td (hand inventory for a tracked material is forecast to fall below safety stock) Tj ET
+BT /F1 11 Tf 72.0 432.0 Td (within the next planning horizon \(30 days\).) Tj ET
+BT /F1 11 Tf 72.0 408.0 Td (Step 1 \20024 Inventory Check: The system retrieves current on-hand quantities and) Tj ET
+BT /F1 11 Tf 72.0 392.0 Td (safety stock levels from the SAP inventory module.) Tj ET
+BT /F1 11 Tf 72.0 376.0 Td (Step 2 \20024 Demand Forecast: The system analyses 18 months of shipment history to) Tj ET
+BT /F1 11 Tf 72.0 360.0 Td (produce a next-month demand forecast with confidence bounds.) Tj ET
+BT /F1 11 Tf 72.0 344.0 Td (Step 3 \20024 Procurement Proposal: If forecast demand exceeds on-hand stock, the) Tj ET
+BT /F1 11 Tf 72.0 328.0 Td (system generates a purchase requisition proposal including recommended quantity,) Tj ET
+BT /F1 11 Tf 72.0 312.0 Td (preferred vendor, unit price, and total estimated cost.) Tj ET
+BT /F1 11 Tf 72.0 296.0 Td (Step 4 \20024 Policy Evaluation: The proposal is evaluated against current procurement) Tj ET
+BT /F1 11 Tf 72.0 280.0 Td (approval policies \(see POL-PROC-001 and POL-PROC-002\). The evaluation engine) Tj ET
+BT /F1 11 Tf 72.0 264.0 Td (applies rules in the following priority order:) Tj ET
+BT /F1 11 Tf 83.0 248.0 Td (  \(a\) Forbidden vendor check \20024 deny if vendor is on the Restricted Vendor) Tj ET
+BT /F1 11 Tf 83.0 232.0 Td (List.) Tj ET
+BT /F1 11 Tf 83.0 216.0 Td (  \(b\) Threshold check \20024 apply the approval tier matching the estimated cost.) Tj ET
+BT /F1 11 Tf 83.0 200.0 Td (  \(c\) Vendor constraint check \20024 verify preferred vendor requirement is met.) Tj ET
+BT /F1 11 Tf 72.0 184.0 Td (Step 5 \20024 Outcome:) Tj ET
+BT /F1 11 Tf 83.0 168.0 Td (  - Auto-approved: a purchase order is created automatically in SAP.) Tj ET
+BT /F1 11 Tf 83.0 152.0 Td (  - Needs human approval: the requisition is placed in the approval queue and) Tj ET
+BT /F1 11 Tf 83.0 136.0 Td (the responsible manager is notified.) Tj ET
+BT /F1 11 Tf 83.0 120.0 Td (  - Denied: the workflow terminates and the operations team is notified to) Tj ET
+BT /F1 11 Tf 83.0 104.0 Td (intervene manually.) Tj ET
+endstream
+endobj
+4 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Contents 3 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+5 0 obj
+<< /Length 2135 >>
+stream
+BT /F2 11 Tf 72.0 720.0 Td (3. APPROVAL QUEUE MANAGEMENT) Tj ET
+BT /F1 11 Tf 72.0 704.0 Td (Approvals pending in the queue for more than 8 business hours are automatically) Tj ET
+BT /F1 11 Tf 72.0 688.0 Td (escalated to the next management level. The operations team must review the) Tj ET
+BT /F1 11 Tf 72.0 672.0 Td (approval queue dashboard at the start of each business day.) Tj ET
+BT /F2 11 Tf 72.0 648.0 Td (4. THRESHOLDS REFERENCE \(as of SOP effective date\)) Tj ET
+BT /F1 11 Tf 72.0 632.0 Td (The following thresholds apply to standard catalogue materials:) Tj ET
+BT /F1 11 Tf 72.0 616.0 Td (- Below $5,000 with preferred vendor: auto-approved) Tj ET
+BT /F1 11 Tf 72.0 600.0 Td (- $5,000 to $25,000: manager approval required) Tj ET
+BT /F1 11 Tf 72.0 584.0 Td (- Above $25,000: executive approval required \(system denies and routes to CapEx) Tj ET
+BT /F1 11 Tf 72.0 568.0 Td (board\)) Tj ET
+BT /F1 11 Tf 72.0 544.0 Td (These values are governed by POL-PROC-001. If POL-PROC-001 is updated, this SOP) Tj ET
+BT /F1 11 Tf 72.0 528.0 Td (reference table must be updated in the same change cycle.) Tj ET
+BT /F2 11 Tf 72.0 504.0 Td (5. EXCEPTION HANDLING) Tj ET
+BT /F1 11 Tf 72.0 488.0 Td (If the policy evaluation engine cannot extract a numeric threshold from a policy) Tj ET
+BT /F1 11 Tf 72.0 472.0 Td (document \(ambiguous language\), it defaults to routing the requisition for human) Tj ET
+BT /F1 11 Tf 72.0 456.0 Td (review. Operations staff should log such exceptions and notify the compliance) Tj ET
+BT /F1 11 Tf 72.0 440.0 Td (team to update the policy wording.) Tj ET
+BT /F2 11 Tf 72.0 416.0 Td (6. AUDIT TRAIL) Tj ET
+BT /F1 11 Tf 72.0 400.0 Td (Every automated procurement decision produces a machine-readable audit record) Tj ET
+BT /F1 11 Tf 72.0 384.0 Td (containing: material ID, vendor ID, estimated cost, the policy rule that fired,) Tj ET
+BT /F1 11 Tf 72.0 368.0 Td (the outcome, and a timestamp. These records are retained in the Cosmos DB audit) Tj ET
+BT /F1 11 Tf 72.0 352.0 Td (container for a minimum of 7 years in accordance with the company records) Tj ET
+BT /F1 11 Tf 72.0 336.0 Td (retention policy.) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 612 792] /Contents 5 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000009 00000 n 
+0000000079 00000 n 
+0000000154 00000 n 
+0000003488 00000 n 
+0000003624 00000 n 
+0000005811 00000 n 
+0000005947 00000 n 
+0000006010 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+6059
+%%EOF
