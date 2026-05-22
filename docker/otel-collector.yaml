@@ -1,0 +1,89 @@
+# OpenTelemetry Collector configuration
+#
+# Used as a DaemonSet on AKS (deploy/k8s/otel-collector.yaml).
+# Receives OTLP from all pods, enriches with K8s attributes, and fans out to:
+#   - Azure Monitor (Application Insights) for traces + metrics
+#   - Prometheus scrape endpoint for Grafana/Mimir metrics
+#
+# For local development the app sends directly to Grafana Cloud via HTTPS
+# (GRAFANA_OTLP_ENDPOINT in config); this collector is not needed locally.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+  # Add K8s pod / namespace / node attributes to every span and metric
+  k8sattributes:
+    auth_type: serviceAccount
+    passthrough: false
+    extract:
+      metadata:
+        - k8s.pod.name
+        - k8s.pod.uid
+        - k8s.namespace.name
+        - k8s.node.name
+        - k8s.deployment.name
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+
+  # Drop high-cardinality health-check spans to avoid noise
+  filter/drop_healthz:
+    traces:
+      span:
+        - 'attributes["http.target"] == "/healthz"'
+        - 'attributes["http.target"] == "/health"'
+
+  memory_limiter:
+    check_interval: 5s
+    limit_mib: 256
+    spike_limit_mib: 64
+
+exporters:
+  # Azure Monitor — traces + metrics + logs
+  # Set APPLICATIONINSIGHTS_CONNECTION_STRING in the collector pod env.
+  azuremonitor:
+    connection_string: ${env:APPLICATIONINSIGHTS_CONNECTION_STRING}
+
+  # Prometheus scrape endpoint — Grafana / Mimir pulls from here
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: supply_chain
+
+  # Debug exporter — enable in local/dev to print to stdout
+  debug:
+    verbosity: basic
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+service:
+  extensions: [health_check, pprof]
+  pipelines:
+    traces:
+      receivers:  [otlp]
+      processors: [memory_limiter, k8sattributes, filter/drop_healthz, batch]
+      exporters:  [azuremonitor]
+
+    metrics:
+      receivers:  [otlp]
+      processors: [memory_limiter, k8sattributes, batch]
+      exporters:  [azuremonitor, prometheus]
+
+    logs:
+      receivers:  [otlp]
+      processors: [memory_limiter, k8sattributes, batch]
+      exporters:  [azuremonitor]
