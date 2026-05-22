@@ -32,6 +32,10 @@ spec:
                 name: supply-chain-agent-config
             - secretRef:
                 name: supply-chain-agent-secrets
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
           livenessProbe:
             httpGet:
               path: /health
@@ -44,3 +48,10 @@ spec:
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: supply-chain-agent-secrets
