@@ -14,7 +14,15 @@ from app.observability.otel import instrument_app, setup_otel
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     s = get_settings()
-    setup_otel(s.otel_service_name, s.otel_service_version, s.otlp_endpoint)
+    setup_otel(
+        s.otel_service_name,
+        s.otel_service_version,
+        s.otlp_endpoint,
+        log_level=s.log_level,
+        grafana_otlp_endpoint=s.grafana_otlp_endpoint,
+        grafana_instance_id=s.grafana_instance_id,
+        grafana_api_key=s.grafana_api_key,
+    )
     yield
 
 

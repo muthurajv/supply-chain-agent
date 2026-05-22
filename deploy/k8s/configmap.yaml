@@ -16,3 +16,5 @@ data:
   COSMOS_CONTAINER_APPROVALS: "approval-queue"
   APP_ENV: "production"
   LOG_LEVEL: "INFO"
+  GRAFANA_OTLP_ENDPOINT: "https://otlp-gateway-prod-us-east-0.grafana.net/otlp"
+  GRAFANA_INSTANCE_ID: ""  # set per environment; GRAFANA_API_KEY comes from Key Vault

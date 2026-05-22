@@ -1,8 +1,12 @@
 """Request-scoped trace context middleware."""
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
+import logging
+
 from opentelemetry import trace
 from opentelemetry.propagate import extract
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+_log = logging.getLogger("supply_chain_agent.http")
 
 
 class TracingMiddleware(BaseHTTPMiddleware):
@@ -25,4 +29,15 @@ class TracingMiddleware(BaseHTTPMiddleware):
 
             response = await call_next(request)
             span.set_attribute("http.status_code", response.status_code)
+
+            # Structured log carries trace_id (injected by LoggingInstrumentor) —
+            # enables Loki → Tempo click-through in Grafana dashboards.
+            _log.info(
+                "http.request",
+                extra={
+                    "http.method": request.method,
+                    "http.route": request.url.path,
+                    "http.status_code": response.status_code,
+                },
+            )
             return response

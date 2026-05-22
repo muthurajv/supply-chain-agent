@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -16,6 +17,8 @@ from app.policy.schema import PolicyDecision, PolicyRule
 from app.tools.rag_tools import retrieve_policy_docs
 
 from .state import GraphState
+
+_policy_log = logging.getLogger("supply_chain_agent.policy")
 
 _FALLBACK_RULES: list[PolicyRule] = [
     PolicyRule(
@@ -119,6 +122,16 @@ async def policy_node(state: GraphState) -> Command:
             policy_s.set_attribute(Attr.POLICY_AMOUNT_USD, decision.amount_usd)
             policy_s.set_attribute(Attr.POLICY_THRESHOLD_USD, decision.threshold_usd)
             policy_s.set_attribute(Attr.POLICY_EXPLANATION, decision.explanation[:500])
+
+        # Audit log — queryable in Loki by policy_outcome / policy_rule_id without opening Tempo.
+        _policy_log.info(
+            "policy.decision",
+            extra={
+                Attr.POLICY_OUTCOME: decision.outcome,
+                Attr.POLICY_RULE_ID: decision.rule_id_fired,
+                Attr.AGENT_TURN: turn,
+            },
+        )
 
         span.set_attribute(Attr.AGENT_DECISION, decision.outcome)
 
