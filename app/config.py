@@ -39,10 +39,15 @@ class Settings(BaseSettings):
     entra_client_id: str = ""
     entra_audience: str = ""
 
-    # OTEL
+    # OTEL (local / K8s path)
     otlp_endpoint: str = "http://otel-collector:4317"
     otel_service_name: str = "supply-chain-agent"
     otel_service_version: str = "1.0.0"
+
+    # Grafana Cloud (laptop / dev) — when set, overrides otlp_endpoint with HTTPS + auth
+    grafana_otlp_endpoint: str = ""
+    grafana_instance_id: str = ""
+    grafana_api_key: str = ""
 
     # App
     app_env: str = "development"

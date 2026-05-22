@@ -1,12 +1,20 @@
 """POST /chat — interactive user queries via Web UI or Teams."""
 import uuid
-from fastapi import APIRouter, Request, Depends
-from pydantic import BaseModel
+
+from fastapi import APIRouter, Depends, Request
 from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import MemorySaver
+from pydantic import BaseModel
+
 from app.agents.graph import get_graph
 from app.api.middleware.auth import validate_token
 from app.config import get_settings
+from app.observability.otel import get_meter
+
+_active_runs = get_meter().create_up_down_counter(
+    "langgraph.active_runs",
+    description="Number of in-flight LangGraph graph invocations",
+)
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -49,7 +57,11 @@ async def chat(
     }
 
     config = {"configurable": {"thread_id": thread_id}}
-    final_state = await graph.ainvoke(initial_state, config=config)
+    _active_runs.add(1)
+    try:
+        final_state = await graph.ainvoke(initial_state, config=config)
+    finally:
+        _active_runs.add(-1)
 
     agent_messages = [
         m for m in final_state.get("messages", [])

@@ -3,19 +3,42 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Literal
 
-from azure.cosmos.aio import CosmosClient
 from azure.cosmos import exceptions as cosmos_exceptions
+from azure.cosmos.aio import CosmosClient
 from fastapi import APIRouter, HTTPException
 from langgraph.types import Command
+from opentelemetry.metrics import CallbackOptions, Observation
 from pydantic import BaseModel
 
 from app.agents.graph import get_graph
 from app.config import get_settings
 from app.memory.checkpointer import CosmosDBCheckpointer
 from app.observability.attributes import Attr
+from app.observability.otel import get_meter
 from app.observability.spans import tool_span
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
+
+_meter = get_meter()
+_cycle_histogram = _meter.create_histogram(
+    "approval.cycle_duration_seconds",
+    unit="s",
+    description="Time from proposal creation to human approval decision",
+)
+
+# Observable gauge: updated by list_pending_approvals on each call.
+_pending_count: int = 0
+
+
+def _observe_queue_depth(_: CallbackOptions) -> list[Observation]:
+    return [Observation(_pending_count)]
+
+
+_meter.create_observable_gauge(
+    "approval_queue_depth",
+    callbacks=[_observe_queue_depth],
+    description="Number of pending approvals in the queue",
+)
 
 
 class ApprovalDecision(BaseModel):
@@ -49,6 +72,8 @@ async def list_pending_approvals():
                 "rationale": item.get("rationale"),
                 "created_at": item.get("created_at"),
             })
+        global _pending_count
+        _pending_count = len(items)
         return {"approvals": items, "count": len(items)}
     finally:
         await client.close()
@@ -92,6 +117,12 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
         if item.get("status") != "pending":
             raise HTTPException(status_code=409, detail=f"Approval '{approval_id}' is already {item['status']}.")
 
+        # Record how long the proposal waited before a decision (skip if timestamp absent).
+        cycle_secs: float | None = None
+        if item.get("created_at"):
+            created_at = datetime.fromisoformat(item["created_at"])
+            cycle_secs = (datetime.now(timezone.utc) - created_at).total_seconds()
+
         # Update the queue record.
         item["status"] = "approved" if payload.approved else "rejected"
         item["decided_at"] = datetime.now(timezone.utc).isoformat()
@@ -99,6 +130,8 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
         with tool_span("cosmos.update_approval") as span:
             await container.upsert_item(item)
             span.set_attribute(Attr.POLICY_OUTCOME, item["status"])
+        if cycle_secs is not None:
+            _cycle_histogram.record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
 
         # Resume the paused LangGraph thread so the policy agent can continue.
         thread_id = item.get("thread_id")
