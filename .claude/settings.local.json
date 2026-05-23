@@ -12,8 +12,27 @@
       "Bash(az cosmosdb sql database *)",
       "Bash(az cosmosdb *)",
       "Bash(git add *)",
+      "Bash(git commit *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git checkout *)",
+      "Bash(git cherry-pick *)",
+      "Bash(git pull *)",
+      "Bash(gh pr *)",
+      "Bash(python3 dashboard_live.py)",
+      "Bash(python -m pytest tests/ -q --tb=short)",
+      "Bash(python -m pytest tests/ -x -q)",
+      "Bash(python -m pytest tests/ --collect-only -q)",
+      "Bash(python *)",
+      "Bash(python3 grafana_setup.py check)",
+      "Bash(python3 grafana_setup.py create-token)",
+      "Bash(python grafana_setup.py check)",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s http://localhost:8001/health)",
+      "Bash(curl -s http://localhost:8080/healthz)",
+      "Bash(curl *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git rm *)"
     ]
   }
 }

@@ -1,18 +1,15 @@
 """
-grafana_setup.py — Check Grafana stack, create service account token, and import dashboards.
+grafana_setup.py — Verify Grafana Cloud stack and create a service account token.
+
+Dashboards are managed directly in Grafana Cloud (not stored in this repo).
+All credentials must be set in .env — never pass tokens on the command line in CI.
 
 Usage:
-    # Step 1 — check the stack is reachable
+    # Verify the stack is reachable and Loki data is flowing
     python grafana_setup.py check
 
-    # Step 2 — create a service account + token (requires admin token)
-    python grafana_setup.py create-token --admin-token glsa_xxx
-
-    # Step 3 — import all three dashboards (requires SA token with Editor role)
-    python grafana_setup.py import-dashboards --token glsa_xxx
-
-    # All steps in one go
-    python grafana_setup.py all --admin-token glsa_xxx
+    # Create a service account + token (requires an admin token in .env)
+    python grafana_setup.py create-token
 """
 from __future__ import annotations
 
@@ -32,19 +29,13 @@ load_dotenv(".env", override=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-STACK_URL   = os.getenv("GRAFANA_STACK_URL", "https://muthuraj1.grafana.net")
-API_KEY     = os.getenv("GRAFANA_API_KEY", "")
-LOKI_USER   = os.getenv("GRAFANA_LOKI_USERNAME", "")
-LOKI_PASS   = os.getenv("GRAFANA_LOKI_PASSWORD", "")
-DASHBOARDS  = Path("grafana/dashboards")
+STACK_URL = os.getenv("GRAFANA_STACK_URL", "")
+API_KEY   = os.getenv("GRAFANA_API_KEY", "")
+LOKI_USER = os.getenv("GRAFANA_LOKI_USERNAME", "")
+LOKI_PASS = os.getenv("GRAFANA_LOKI_PASSWORD", "")
 
-SA_NAME     = "supply-chain-dashboard-importer"
+SA_NAME       = "supply-chain-dashboard-importer"
 SA_TOKEN_NAME = "supply-chain-import-token"
-
-DATASOURCE_MAP = {
-    "DS_PROMETHEUS": {"type": "prometheus", "name": "grafanacloud-prom"},
-    "DS_LOKI":       {"type": "loki",       "name": "grafanacloud-logs"},
-}
 
 
 # ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -70,13 +61,13 @@ def _request(method: str, path: str, token: str, body: dict | None = None) -> tu
 
 
 def _loki_check() -> bool:
-    """Verify Loki data is flowing using the ingest key."""
+    """Return True if recent supply-chain-agent logs exist in Loki."""
     loki_url = os.getenv("GRAFANA_LOKI_ENDPOINT", "")
     if not loki_url or not LOKI_USER:
         return False
     auth = base64.b64encode(f"{LOKI_USER}:{API_KEY}".encode()).decode()
-    now_ns  = int(time.time() * 1e9)
-    start   = now_ns - int(3600 * 1e9)
+    now_ns = int(time.time() * 1e9)
+    start  = now_ns - int(3600 * 1e9)
     import urllib.parse
     p = urllib.parse.urlencode({
         "query": '{service_name="supply-chain-agent"}',
@@ -88,8 +79,7 @@ def _loki_check() -> bool:
     )
     try:
         result = json.loads(urllib.request.urlopen(req, timeout=10).read())
-        streams = result.get("data", {}).get("result", [])
-        return len(streams) > 0
+        return len(result.get("data", {}).get("result", [])) > 0
     except Exception:
         return False
 
@@ -101,7 +91,10 @@ def cmd_check(_args) -> int:
     print("  GRAFANA STACK HEALTH CHECK")
     print(f"{'='*60}\n")
 
-    # 1. Stack reachability
+    if not STACK_URL:
+        print("ERROR: GRAFANA_STACK_URL not set in .env")
+        return 1
+
     print(f"  Stack URL : {STACK_URL}")
     try:
         req = urllib.request.Request(f"{STACK_URL}/api/health")
@@ -112,44 +105,40 @@ def cmd_check(_args) -> int:
         print(f"  Status    : UNREACHABLE — {exc}")
         return 1
 
-    # 2. Loki data
     print(f"\n  Checking Loki telemetry data…")
     if _loki_check():
         print("  Loki      : OK  (supply-chain-agent logs present)")
     else:
-        print("  Loki      : WARNING — no recent logs found")
+        print("  Loki      : WARNING — no recent logs found (is the app running?)")
 
-    print(f"\n  To import dashboards you need a Grafana Service Account token")
-    print(f"  with Editor role. Create one at:")
-    print(f"  {STACK_URL}/org/serviceaccounts")
-    print(f"  Then run:  python grafana_setup.py import-dashboards --token glsa_xxx\n")
+    print(f"\n  Dashboards are managed in Grafana Cloud — open {STACK_URL}\n")
     return 0
 
 
 def cmd_create_token(args) -> int:
-    admin_token = args.admin_token or os.getenv("GRAFANA_SA_TOKEN", "")
+    admin_token = os.getenv("GRAFANA_SA_TOKEN", "")
     if not admin_token:
-        print("ERROR: provide --admin-token or set GRAFANA_SA_TOKEN in .env")
+        print("ERROR: set GRAFANA_SA_TOKEN in .env (needs admin role)")
+        return 1
+    if not STACK_URL:
+        print("ERROR: set GRAFANA_STACK_URL in .env")
         return 1
 
     print(f"\n  Creating service account '{SA_NAME}'…")
 
-    # Create or find service account
     status, resp = _request("POST", "/api/serviceaccounts", admin_token, {
         "name": SA_NAME, "role": "Editor", "isDisabled": False,
     })
     if status == 201:
         sa_id = resp["id"]
         print(f"  Created SA  id={sa_id}")
-    elif status == 200:
-        sa_id = resp["id"]
-        print(f"  SA exists   id={sa_id}")
-    elif status == 409:
-        # Already exists — find it
-        _, list_resp = _request("GET", "/api/serviceaccounts/search?query=" + SA_NAME, admin_token)
+    elif status in (200, 409):
+        _, list_resp = _request(
+            "GET", f"/api/serviceaccounts/search?query={SA_NAME}", admin_token
+        )
         sas = list_resp.get("serviceAccounts", [])
         if not sas:
-            print(f"ERROR: SA exists but couldn't find it: {resp}")
+            print(f"ERROR: SA exists but couldn't be found: {resp}")
             return 1
         sa_id = sas[0]["id"]
         print(f"  SA exists   id={sa_id}")
@@ -157,168 +146,37 @@ def cmd_create_token(args) -> int:
         print(f"ERROR: {status} — {resp}")
         return 1
 
-    # Create token
-    status, tok_resp = _request("POST", f"/api/serviceaccounts/{sa_id}/tokens", admin_token, {
-        "name": SA_TOKEN_NAME,
-    })
+    status, tok_resp = _request(
+        "POST", f"/api/serviceaccounts/{sa_id}/tokens", admin_token,
+        {"name": SA_TOKEN_NAME},
+    )
     if status not in (200, 201):
         print(f"ERROR creating token: {status} — {tok_resp}")
         return 1
 
     token = tok_resp["key"]
-    print(f"\n  Service Account Token (save this — shown only once):")
+    print(f"\n  Token created (shown once only):")
     print(f"  {token}")
-    print(f"\n  Add to .env:  GRAFANA_SA_TOKEN={token}")
-    print(f"  Then run:     python grafana_setup.py import-dashboards --token {token}\n")
+    print(f"\n  Add to .env:  GRAFANA_SA_TOKEN={token}\n")
     return 0
-
-
-def cmd_import_dashboards(args) -> int:
-    token = args.token or os.getenv("GRAFANA_SA_TOKEN", "")
-    if not token:
-        print("ERROR: provide --token or set GRAFANA_SA_TOKEN in .env")
-        return 1
-
-    # Verify auth first
-    status, user = _request("GET", "/api/user", token)
-    if status == 401:
-        print(f"ERROR: 401 Unauthorized. Token invalid or expired.")
-        return 1
-    if status != 200:
-        print(f"ERROR: {status} — {user}")
-        return 1
-    print(f"\n  Authenticated as: {user.get('name', '?')} ({user.get('email', '?')})")
-
-    # Find datasource UIDs — prefer stack-specific datasources over shared/play ones.
-    # Grafana Cloud stacks have multiple loki/prometheus sources; pick the main
-    # stack datasource by matching the stack slug in the name, then fall back to
-    # any datasource of that type.
-    _, ds_list = _request("GET", "/api/datasources", token)
-    stack_slug = STACK_URL.rstrip("/").split("//")[-1].split(".")[0]  # "muthuraj1"
-
-    # Grafana Cloud stacks have many loki/prometheus datasources (alerts, usage,
-    # ML metrics, play, etc.). Pick the primary stack datasource:
-    # Priority 1 — name contains the stack slug AND type matches (e.g. "grafanacloud-muthuraj1-logs")
-    # Priority 2 — any datasource of that type
-    ds_by_type_primary: dict[str, str] = {}
-    ds_by_type_any: dict[str, str] = {}
-    if isinstance(ds_list, list):
-        for ds in ds_list:
-            t    = ds.get("type", "")
-            uid  = ds.get("uid", "")
-            name = ds.get("name", "")
-            if t not in ds_by_type_any:
-                ds_by_type_any[t] = uid
-            # Primary = name contains the stack slug (guaranteed to be this stack's DS)
-            if stack_slug in name and t not in ds_by_type_primary:
-                ds_by_type_primary[t] = uid
-
-    # For stacks with multiple same-type slug-matched sources (e.g. alert-state-history
-    # vs logs), prefer the ones whose UID matches the known Grafana Cloud naming pattern:
-    # grafanacloud-logs and grafanacloud-prom are the canonical data-plane sources.
-    CANONICAL_UIDS = {"loki": "grafanacloud-logs", "prometheus": "grafanacloud-prom"}
-
-    def _pick_uid(plugin_type: str) -> str:
-        canonical = CANONICAL_UIDS.get(plugin_type, "")
-        if canonical and isinstance(ds_list, list):
-            if any(ds.get("uid") == canonical for ds in ds_list):
-                return canonical
-        return ds_by_type_primary.get(plugin_type) or ds_by_type_any.get(plugin_type, "")
-
-    print(f"  Loki UID   : {_pick_uid('loki')}")
-    print(f"  Prometheus : {_pick_uid('prometheus')}")
-
-    dashboard_files = sorted(DASHBOARDS.glob("*.json"))
-    if not dashboard_files:
-        print(f"ERROR: no dashboard JSON files found in {DASHBOARDS}")
-        return 1
-
-    results = []
-    for path in dashboard_files:
-        dash = json.loads(path.read_text())
-
-        # Resolve __inputs datasource variables
-        input_map: dict[str, str] = {}
-        for inp in dash.get("__inputs", []):
-            var_name  = inp["name"]          # e.g. "DS_LOKI"
-            ds_type   = inp.get("pluginId", inp.get("type", ""))
-            uid_override = _pick_uid(ds_type)
-            input_map[f"${{{var_name}}}"] = uid_override or inp.get("value", "")
-
-        # Apply substitutions recursively in the dashboard JSON
-        dash_str = json.dumps(dash)
-        for placeholder, uid in input_map.items():
-            dash_str = dash_str.replace(placeholder, uid)
-        dash_resolved = json.loads(dash_str)
-
-        # Strip __inputs / __requires — not accepted by the API
-        dash_resolved.pop("__inputs", None)
-        dash_resolved.pop("__requires", None)
-        dash_resolved["id"] = None  # let Grafana assign
-
-        payload = {"dashboard": dash_resolved, "overwrite": True, "folderId": 0}
-        status, resp = _request("POST", "/api/dashboards/db", token, payload)
-
-        if status == 200:
-            uid   = resp.get("uid", "?")
-            title = dash_resolved.get("title", path.name)
-            url   = f"{STACK_URL}/d/{uid}"
-            print(f"  [OK]  {title}")
-            print(f"        {url}")
-            results.append((title, url))
-        else:
-            print(f"  [FAIL] {path.name} — HTTP {status}: {resp}")
-
-    if results:
-        print(f"\n  {'='*56}")
-        print("  DASHBOARD LINKS")
-        print(f"  {'='*56}")
-        for title, url in results:
-            print(f"  {title}")
-            print(f"  {url}")
-        print()
-    return 0
-
-
-def cmd_all(args) -> int:
-    rc = cmd_check(args)
-    if rc:
-        return rc
-    rc = cmd_create_token(args)
-    if rc:
-        return rc
-    # re-parse token from env in case create-token set it
-    args.token = os.getenv("GRAFANA_SA_TOKEN", args.admin_token)
-    return cmd_import_dashboards(args)
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="command")
-
     sub.add_parser("check", help="Verify stack reachability and Loki data")
-
-    p_tok = sub.add_parser("create-token", help="Create Grafana service account + token")
-    p_tok.add_argument("--admin-token", default="", help="Admin service account token (glsa_...)")
-
-    p_imp = sub.add_parser("import-dashboards", help="Import all three dashboard JSONs")
-    p_imp.add_argument("--token", default="", help="Service account token with Editor role")
-
-    p_all = sub.add_parser("all", help="Check + create-token + import-dashboards")
-    p_all.add_argument("--admin-token", default="", help="Admin service account token (glsa_...)")
-    p_all.add_argument("--token", default="", help="Override token for import step")
+    sub.add_parser("create-token", help="Create Grafana service account + token")
 
     args = parser.parse_args()
-
     dispatch = {
-        "check":             cmd_check,
-        "create-token":      cmd_create_token,
-        "import-dashboards": cmd_import_dashboards,
-        "all":               cmd_all,
+        "check":        cmd_check,
+        "create-token": cmd_create_token,
     }
-
     fn = dispatch.get(args.command)
     if fn is None:
         parser.print_help()
