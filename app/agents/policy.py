@@ -15,6 +15,7 @@ from app.observability.metrics import (
     compliance_checks_counter,
     compliance_flags_counter,
 )
+from app.observability.loki import push_policy_audit
 from app.observability.spans import agent_span, policy_evaluation_span, tool_span
 from app.policy.evaluator import evaluate_rules
 from app.policy.extraction import extract_rules
@@ -134,7 +135,7 @@ async def policy_node(state: GraphState) -> Command:
         if decision.outcome == "needs_human":
             compliance_flags_counter().add(1, {"rule_id": decision.rule_id_fired})
 
-        # Audit log — queryable in Loki by policy_outcome / policy_rule_id without opening Tempo.
+        # OTEL log — injects trace_id for Loki → Tempo click-through in Grafana.
         _policy_log.info(
             "policy.decision",
             extra={
@@ -142,6 +143,19 @@ async def policy_node(state: GraphState) -> Command:
                 Attr.POLICY_RULE_ID: decision.rule_id_fired,
                 Attr.AGENT_TURN: turn,
             },
+        )
+
+        # Direct Loki push — labelled by outcome/rule_id for governance panel streams.
+        await push_policy_audit(
+            agent_name="policy",
+            policy_outcome=decision.outcome,
+            rule_id=decision.rule_id_fired,
+            amount_usd=decision.amount_usd,
+            threshold_usd=decision.threshold_usd,
+            explanation=decision.explanation,
+            proposal_id=str(proposal.material_id),
+            material_id=proposal.material_id,
+            vendor_id=proposal.vendor_id,
         )
 
         span.set_attribute(Attr.AGENT_DECISION, decision.outcome)

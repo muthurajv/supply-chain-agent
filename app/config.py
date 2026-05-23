@@ -44,10 +44,19 @@ class Settings(BaseSettings):
     otel_service_name: str = "supply-chain-agent"
     otel_service_version: str = "1.0.0"
 
-    # Grafana Cloud (laptop / dev) — when set, overrides otlp_endpoint with HTTPS + auth
+    # Grafana Cloud — OTLP gateway (traces, metrics, logs)
     grafana_otlp_endpoint: str = ""
     grafana_instance_id: str = ""
     grafana_api_key: str = ""
+
+    # Grafana Cloud — Loki direct push (governance audit records)
+    grafana_loki_endpoint: str = ""
+    grafana_loki_username: str = ""
+    grafana_loki_password: str = ""
+
+    # Grafana Cloud — Stack management (dashboard creation)
+    grafana_stack_url: str = ""
+    grafana_sa_token: str = ""
 
     # App
     app_env: str = "development"

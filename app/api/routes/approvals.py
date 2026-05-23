@@ -13,6 +13,7 @@ from app.agents.graph import get_graph
 from app.config import get_settings
 from app.memory.checkpointer import CosmosDBCheckpointer
 from app.observability.attributes import Attr
+from app.observability.loki import push_approval_audit
 from app.observability.metrics import set_human_review_queue_depth
 from app.observability.otel import get_meter
 from app.observability.spans import tool_span
@@ -123,6 +124,13 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
             span.set_attribute(Attr.POLICY_OUTCOME, item["status"])
         if cycle_secs is not None:
             _get_cycle_histogram().record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
+
+        await push_approval_audit(
+            approval_id=approval_id,
+            decision=item["status"],
+            cycle_seconds=cycle_secs,
+            reason=payload.reason,
+        )
 
         # Resume the paused LangGraph thread so the policy agent can continue.
         thread_id = item.get("thread_id")
