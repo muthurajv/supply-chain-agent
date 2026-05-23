@@ -7,27 +7,19 @@ from azure.cosmos import exceptions as cosmos_exceptions
 from azure.cosmos.aio import CosmosClient
 from fastapi import APIRouter, HTTPException
 from langgraph.types import Command
-from opentelemetry.metrics import CallbackOptions, Observation
 from pydantic import BaseModel
 
 from app.agents.graph import get_graph
 from app.config import get_settings
 from app.memory.checkpointer import CosmosDBCheckpointer
 from app.observability.attributes import Attr
+from app.observability.metrics import set_human_review_queue_depth
 from app.observability.otel import get_meter
 from app.observability.spans import tool_span
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 
-# Instruments are created lazily so they bind to the real MeterProvider
-# (set by setup_otel()) rather than the no-op provider active at import time.
 _cycle_histogram = None
-_gauge_registered = False
-_pending_count: int = 0
-
-
-def _observe_queue_depth(_: CallbackOptions) -> list[Observation]:
-    return [Observation(_pending_count)]
 
 
 def _get_cycle_histogram():
@@ -39,17 +31,6 @@ def _get_cycle_histogram():
             description="Time from proposal creation to human approval decision",
         )
     return _cycle_histogram
-
-
-def _ensure_gauge() -> None:
-    global _gauge_registered
-    if not _gauge_registered:
-        get_meter().create_observable_gauge(
-            "approval_queue_depth",
-            callbacks=[_observe_queue_depth],
-            description="Number of pending approvals in the queue",
-        )
-        _gauge_registered = True
 
 
 class ApprovalDecision(BaseModel):
@@ -83,9 +64,7 @@ async def list_pending_approvals():
                 "rationale": item.get("rationale"),
                 "created_at": item.get("created_at"),
             })
-        global _pending_count
-        _pending_count = len(items)
-        _ensure_gauge()
+        set_human_review_queue_depth(len(items))
         return {"approvals": items, "count": len(items)}
     finally:
         await client.close()

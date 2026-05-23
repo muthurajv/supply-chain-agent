@@ -10,6 +10,11 @@ from langgraph.types import Command, interrupt
 
 from app.config import get_settings
 from app.observability.attributes import Attr
+from app.observability.metrics import (
+    audit_records_counter,
+    compliance_checks_counter,
+    compliance_flags_counter,
+)
 from app.observability.spans import agent_span, policy_evaluation_span, tool_span
 from app.policy.evaluator import evaluate_rules
 from app.policy.extraction import extract_rules
@@ -75,6 +80,7 @@ async def _write_approval_queue(proposal, decision: PolicyDecision) -> str:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
             span.set_attribute(Attr.POLICY_OUTCOME, decision.outcome)
+            audit_records_counter().add(1)
             return queue_id
         finally:
             await client.close()
@@ -122,6 +128,11 @@ async def policy_node(state: GraphState) -> Command:
             policy_s.set_attribute(Attr.POLICY_AMOUNT_USD, decision.amount_usd)
             policy_s.set_attribute(Attr.POLICY_THRESHOLD_USD, decision.threshold_usd)
             policy_s.set_attribute(Attr.POLICY_EXPLANATION, decision.explanation[:500])
+
+        # Compliance metrics
+        compliance_checks_counter().add(1, {"outcome": decision.outcome})
+        if decision.outcome == "needs_human":
+            compliance_flags_counter().add(1, {"rule_id": decision.rule_id_fired})
 
         # Audit log — queryable in Loki by policy_outcome / policy_rule_id without opening Tempo.
         _policy_log.info(

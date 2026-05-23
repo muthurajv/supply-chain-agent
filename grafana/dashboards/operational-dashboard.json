@@ -236,7 +236,7 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"},
       "targets": [
         {
-          "expr": "sum(langgraph_active_runs{job=\"supply-chain-agent\"})",
+          "expr": "sum(workflows_in_progress{job=\"supply-chain-agent\"})",
           "legendFormat": "In-flight",
           "refId": "A"
         }
@@ -264,7 +264,7 @@
       "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "colorMode": "background"},
       "targets": [
         {
-          "expr": "approval_queue_depth{job=\"supply-chain-agent\"}",
+          "expr": "human_review_queue_depth{job=\"supply-chain-agent\"}",
           "legendFormat": "Pending",
           "refId": "A"
         }
