@@ -1,0 +1,47 @@
+# Version control
+.git
+.gitignore
+
+# Python virtual environment — never copy into the build context
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+dist
+build
+.eggs
+
+# Test / coverage artefacts
+tests/
+.pytest_cache
+.coverage
+htmlcov
+*.xml
+
+# Editor / OS
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets — must never enter the build context
+.env
+*.env
+*.pem
+*.key
+*.p12
+
+# Documentation / ops tooling (not needed at runtime)
+docs/
+ops/
+grafana/
+docker/
+deploy/
+Makefile
+
+# Dev dependencies lock target (not needed for runtime image)
+# uv.lock IS needed — it's bind-mounted during the RUN layer

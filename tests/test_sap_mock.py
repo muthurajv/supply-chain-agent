@@ -1,9 +1,23 @@
-"""Integration tests for the SAP mock service endpoints."""
+"""SAP mock service — integration + contract tests.
+
+Contract tests (prefixed test_contract_*) verify that each endpoint's JSON
+response parses cleanly through the Pydantic model that app/tools/sap_tools.py
+consumes.  A shape mismatch here means the tool would KeyError or silently drop
+a field in production (§8.2).
+"""
 from __future__ import annotations
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sap_mock.models import (
+    GoodsReceiptResponse,
+    InventoryResponse,
+    PurchaseOrderResponse,
+    ShipmentRecord,
+    StockLocationResponse,
+    VendorResponse,
+)
 
 
 @pytest.fixture
@@ -141,3 +155,69 @@ async def test_get_open_pos(client):
     assert resp.status_code == 200
     pos = resp.json()
     assert isinstance(pos, list)
+
+
+# ---------------------------------------------------------------------------
+# Contract tests — each response must parse through its Pydantic model
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_contract_inventory_response(client):
+    resp = await client.get("/inventory/M-1042")
+    assert resp.status_code == 200
+    model = InventoryResponse.model_validate(resp.json())
+    assert model.material_id == "M-1042"
+    assert model.on_hand_qty >= 0
+    assert model.safety_stock >= 0
+    assert model.unit
+
+
+@pytest.mark.asyncio
+async def test_contract_stock_location_response(client):
+    resp = await client.get("/inventory/M-1042/locations")
+    assert resp.status_code == 200
+    locations = [StockLocationResponse.model_validate(item) for item in resp.json()]
+    assert len(locations) >= 1
+    assert all(loc.qty >= 0 for loc in locations)
+
+
+@pytest.mark.asyncio
+async def test_contract_shipment_record_response(client):
+    resp = await client.get("/shipments/history/M-1042?months=6")
+    assert resp.status_code == 200
+    records = [ShipmentRecord.model_validate(item) for item in resp.json()]
+    assert len(records) > 0
+    assert all(r.qty >= 0 for r in records)
+
+
+@pytest.mark.asyncio
+async def test_contract_vendor_response(client):
+    resp = await client.get("/vendors/V-7")
+    assert resp.status_code == 200
+    model = VendorResponse.model_validate(resp.json())
+    assert model.vendor_id == "V-7"
+    assert model.lead_time_days > 0
+    assert isinstance(model.preferred, bool)
+
+
+@pytest.mark.asyncio
+async def test_contract_vendor_list_response(client):
+    resp = await client.get("/vendors/?preferred_only=true")
+    assert resp.status_code == 200
+    vendors = [VendorResponse.model_validate(v) for v in resp.json()]
+    assert all(v.preferred for v in vendors)
+
+
+@pytest.mark.asyncio
+async def test_contract_purchase_order_response(client):
+    resp = await client.post("/po/create", json={
+        "material_id": "M-1042",
+        "vendor_id": "V-7",
+        "qty": 100.0,
+        "unit_price": 25.0,
+    })
+    assert resp.status_code == 201
+    model = PurchaseOrderResponse.model_validate(resp.json())
+    assert model.pr_number.startswith("PR-")
+    assert model.total_value == 100.0 * 25.0
+    assert model.status == "open"

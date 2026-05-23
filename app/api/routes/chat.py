@@ -11,10 +11,17 @@ from app.api.middleware.auth import validate_token
 from app.config import get_settings
 from app.observability.otel import get_meter
 
-_active_runs = get_meter().create_up_down_counter(
-    "langgraph.active_runs",
-    description="Number of in-flight LangGraph graph invocations",
-)
+_active_runs = None
+
+
+def _get_active_runs():
+    global _active_runs
+    if _active_runs is None:
+        _active_runs = get_meter().create_up_down_counter(
+            "langgraph.active_runs",
+            description="Number of in-flight LangGraph graph invocations",
+        )
+    return _active_runs
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -57,11 +64,11 @@ async def chat(
     }
 
     config = {"configurable": {"thread_id": thread_id}}
-    _active_runs.add(1)
+    _get_active_runs().add(1)
     try:
         final_state = await graph.ainvoke(initial_state, config=config)
     finally:
-        _active_runs.add(-1)
+        _get_active_runs().add(-1)
 
     agent_messages = [
         m for m in final_state.get("messages", [])

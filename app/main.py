@@ -5,8 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.middleware.tracing import TracingMiddleware
-from app.api.routes import chat, dashboards, invoke
-from app.api.routes import approvals
+from app.api.routes import approvals, chat, dashboards, invoke
 from app.config import get_settings
 from app.observability.otel import instrument_app, setup_otel
 
@@ -48,7 +47,6 @@ def create_app() -> FastAPI:
     async def healthz():
         return {"status": "ok", "service": s.otel_service_name, "env": s.app_env}
 
-    # Backward-compat alias.
     @app.get("/health")
     async def health():
         return {"status": "ok", "service": s.otel_service_name, "env": s.app_env}
