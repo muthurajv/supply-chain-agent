@@ -189,13 +189,44 @@ def cmd_import_dashboards(args) -> int:
         return 1
     print(f"\n  Authenticated as: {user.get('name', '?')} ({user.get('email', '?')})")
 
-    # Find datasource UIDs
+    # Find datasource UIDs — prefer stack-specific datasources over shared/play ones.
+    # Grafana Cloud stacks have multiple loki/prometheus sources; pick the main
+    # stack datasource by matching the stack slug in the name, then fall back to
+    # any datasource of that type.
     _, ds_list = _request("GET", "/api/datasources", token)
-    ds_by_type: dict[str, str] = {}
+    stack_slug = STACK_URL.rstrip("/").split("//")[-1].split(".")[0]  # "muthuraj1"
+
+    # Grafana Cloud stacks have many loki/prometheus datasources (alerts, usage,
+    # ML metrics, play, etc.). Pick the primary stack datasource:
+    # Priority 1 — name contains the stack slug AND type matches (e.g. "grafanacloud-muthuraj1-logs")
+    # Priority 2 — any datasource of that type
+    ds_by_type_primary: dict[str, str] = {}
+    ds_by_type_any: dict[str, str] = {}
     if isinstance(ds_list, list):
         for ds in ds_list:
-            ds_by_type[ds.get("type", "")] = ds.get("uid", "")
-    print(f"  Datasources found: {list(ds_by_type.keys())}")
+            t    = ds.get("type", "")
+            uid  = ds.get("uid", "")
+            name = ds.get("name", "")
+            if t not in ds_by_type_any:
+                ds_by_type_any[t] = uid
+            # Primary = name contains the stack slug (guaranteed to be this stack's DS)
+            if stack_slug in name and t not in ds_by_type_primary:
+                ds_by_type_primary[t] = uid
+
+    # For stacks with multiple same-type slug-matched sources (e.g. alert-state-history
+    # vs logs), prefer the ones whose UID matches the known Grafana Cloud naming pattern:
+    # grafanacloud-logs and grafanacloud-prom are the canonical data-plane sources.
+    CANONICAL_UIDS = {"loki": "grafanacloud-logs", "prometheus": "grafanacloud-prom"}
+
+    def _pick_uid(plugin_type: str) -> str:
+        canonical = CANONICAL_UIDS.get(plugin_type, "")
+        if canonical and isinstance(ds_list, list):
+            if any(ds.get("uid") == canonical for ds in ds_list):
+                return canonical
+        return ds_by_type_primary.get(plugin_type) or ds_by_type_any.get(plugin_type, "")
+
+    print(f"  Loki UID   : {_pick_uid('loki')}")
+    print(f"  Prometheus : {_pick_uid('prometheus')}")
 
     dashboard_files = sorted(DASHBOARDS.glob("*.json"))
     if not dashboard_files:
@@ -211,7 +242,7 @@ def cmd_import_dashboards(args) -> int:
         for inp in dash.get("__inputs", []):
             var_name  = inp["name"]          # e.g. "DS_LOKI"
             ds_type   = inp.get("pluginId", inp.get("type", ""))
-            uid_override = ds_by_type.get(ds_type, "")
+            uid_override = _pick_uid(ds_type)
             input_map[f"${{{var_name}}}"] = uid_override or inp.get("value", "")
 
         # Apply substitutions recursively in the dashboard JSON
