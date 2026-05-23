@@ -72,8 +72,8 @@
       "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count{job=\"supply-chain-agent\"}[$__rate_interval]))",
-          "legendFormat": "{{http_route}}",
+          "expr": "sum by (http_target) (rate(http_server_duration_milliseconds_count{job=\"supply-chain-agent\"}[$__rate_interval]))",
+          "legendFormat": "{{http_target}}",
           "refId": "A"
         }
       ]
@@ -86,24 +86,24 @@
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "ms",
           "custom": {"lineWidth": 2}
         }
       },
       "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"supply-chain-agent\",http_route=\"/chat\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_server_duration_milliseconds_bucket{job=\"supply-chain-agent\",http_target=\"/chat\"}[$__rate_interval])))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"supply-chain-agent\",http_route=\"/chat\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_duration_milliseconds_bucket{job=\"supply-chain-agent\",http_target=\"/chat\"}[$__rate_interval])))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"supply-chain-agent\",http_route=\"/chat\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_duration_milliseconds_bucket{job=\"supply-chain-agent\",http_target=\"/chat\"}[$__rate_interval])))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -136,8 +136,8 @@
       "options": {"orientation": "vertical", "legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (agent_name) (count_over_time({service_name=\"supply-chain-agent\", agent_name=~\".+\"} | json [24h]))",
-          "legendFormat": "{{agent_name}}",
+          "expr": "sum by (scope_name) (count_over_time({service_name=\"supply-chain-agent\", scope_name=~\"supply_chain_agent\\\\..+\"} [24h]))",
+          "legendFormat": "{{scope_name}}",
           "refId": "A",
           "queryType": "range"
         }
@@ -166,8 +166,8 @@
       "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (tool_name) (rate({service_name=\"supply-chain-agent\"} | json | level=\"error\" | tool_name != \"\" [$__interval])) / sum by (tool_name) (rate({service_name=\"supply-chain-agent\"} | json | tool_name != \"\" [$__interval]))",
-          "legendFormat": "{{tool_name}}",
+          "expr": "sum(rate({service_name=\"supply-chain-agent\", severity_text=\"ERROR\"} [$__interval])) / sum(rate({service_name=\"supply-chain-agent\"} [$__interval]))",
+          "legendFormat": "error rate",
           "refId": "A",
           "queryType": "range"
         }
