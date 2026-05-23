@@ -6,8 +6,10 @@ from functools import lru_cache
 
 from opentelemetry import trace
 
+from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
+from app.observability.spans import record_llm_usage
 
 from .schema import PolicyRule
 
@@ -48,6 +50,7 @@ def _cached_extraction(policy_text_hash: str, policy_text: str) -> list[dict]:
             {"role": "system", "content": _EXTRACTION_SYSTEM},
             {"role": "user", "content": f"Policy documents:\n{policy_text}\n\nExtract approval rules."},
         ])
+        record_llm_usage("policy.extraction", response, get_settings().azure_openai_deployment)
         raw = json.loads(response.content)
         rules = raw.get("rules", raw) if isinstance(raw, dict) else raw
         span.set_attribute(Attr.RAG_RESULT_COUNT, len(rules) if isinstance(rules, list) else 0)

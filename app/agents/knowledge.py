@@ -3,9 +3,10 @@ from __future__ import annotations
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
+from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
-from app.observability.spans import agent_span
+from app.observability.spans import agent_span, record_llm_usage
 from app.tools.rag_tools import retrieve_policy_docs
 
 from .state import GraphState
@@ -28,6 +29,7 @@ async def knowledge_node(state: GraphState) -> Command:
             response = await llm.ainvoke([
                 {"role": "user", "content": f"Summarize the following policy documents relevant to: '{query}'\n\n{doc_text}"},
             ])
+            record_llm_usage("knowledge", response, get_settings().azure_openai_deployment)
             content = response.content
 
         span.set_attribute(Attr.AGENT_DECISION, f"retrieved {len(docs)} docs")

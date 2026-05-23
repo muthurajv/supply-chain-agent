@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
+from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
-from app.observability.spans import agent_span
+from app.observability.spans import agent_span, record_llm_usage
 from app.tools.kpi_tools import write_kpi
 from app.tools.sap_tools import get_inventory, get_open_pos
 
@@ -45,6 +46,7 @@ async def analytics_node(state: GraphState) -> Command:
             {"role": "system", "content": _NARRATIVE_SYSTEM},
             {"role": "user", "content": f"KPI: Inventory Health Score = {health_pct}%. Context: {health_ctx}"},
         ])
+        record_llm_usage("analytics", health_resp, get_settings().azure_openai_deployment)
         await write_kpi("inventory_health", health_pct, "%", health_resp.content)
         kpi_results["inventory_health"] = {"value": health_pct, "unit": "%"}
 
@@ -58,6 +60,7 @@ async def analytics_node(state: GraphState) -> Command:
                 "content": f"KPI: Open Purchase Orders = {po_count}. Context: as of {datetime.now(timezone.utc).strftime('%Y-%m-%d')}.",
             },
         ])
+        record_llm_usage("analytics", po_resp, get_settings().azure_openai_deployment)
         await write_kpi("open_purchase_orders", float(po_count), "count", po_resp.content)
         kpi_results["open_purchase_orders"] = {"value": po_count, "unit": "count"}
 

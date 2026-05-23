@@ -7,35 +7,25 @@
       "type": "datasource",
       "pluginId": "loki",
       "pluginName": "Loki"
-    },
-    {
-      "name": "DS_TEMPO",
-      "label": "Tempo",
-      "description": "Grafana Cloud Traces (Tempo)",
-      "type": "datasource",
-      "pluginId": "tempo",
-      "pluginName": "Tempo"
     }
   ],
   "__requires": [
     {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0"},
     {"type": "datasource", "id": "loki", "name": "Loki", "version": "1.0.0"},
-    {"type": "datasource", "id": "tempo", "name": "Tempo", "version": "1.0.0"},
     {"type": "panel", "id": "logs", "name": "Logs", "version": ""},
-    {"type": "panel", "id": "traces", "name": "Traces", "version": ""},
     {"type": "panel", "id": "timeseries", "name": "Time series", "version": ""}
   ],
   "title": "Supply Chain Agent — Logs & Traces",
   "uid": "supply-chain-logs-traces",
-  "description": "Correlated Loki logs and Tempo traces. Click a trace_id in a log line to open the full trace in Tempo.",
+  "description": "HTTP request stream, policy decisions, LLM call logs, errors, and per-scope activity — all via Loki stream labels (no | json pipeline).",
   "tags": ["supply-chain", "logs", "traces"],
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
-  "time": {"from": "now-30m", "to": "now"},
+  "time": {"from": "now-1h", "to": "now"},
   "timezone": "browser",
   "editable": true,
-  "graphTooltip": 0,
+  "graphTooltip": 1,
   "templating": {
     "list": [
       {
@@ -45,23 +35,6 @@
         "query": "loki",
         "hide": 2,
         "current": {}
-      },
-      {
-        "name": "DS_TEMPO",
-        "type": "datasource",
-        "pluginId": "tempo",
-        "query": "tempo",
-        "hide": 2,
-        "current": {}
-      },
-      {
-        "name": "agent",
-        "label": "Agent",
-        "type": "custom",
-        "query": "all,inventory,forecast,procurement,policy,knowledge,analytics",
-        "current": {"text": "all", "value": "all"},
-        "hide": 0,
-        "includeAll": false
       }
     ]
   },
@@ -69,7 +42,7 @@
     {
       "id": 1,
       "title": "HTTP Request Log Stream",
-      "description": "Each log line carries otelTraceID — click to jump to the full Tempo trace.",
+      "description": "All inbound API requests. Stream label http_route is set by FastAPI auto-instrumentation.",
       "type": "logs",
       "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
       "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
@@ -82,7 +55,7 @@
       },
       "targets": [
         {
-          "expr": "{service_name=\"supply-chain-agent\"} | json | http_route != \"\"",
+          "expr": "{service_name=\"supply-chain-agent\", http_route=~\".+\"}",
           "legendFormat": "",
           "refId": "A",
           "queryType": "range"
@@ -104,7 +77,7 @@
       },
       "targets": [
         {
-          "expr": "{service_name=\"supply-chain-agent\", agent_name=\"policy\"} | json",
+          "expr": "{service_name=\"supply-chain-agent\", scope_name=\"supply_chain_agent.policy\"}",
           "legendFormat": "",
           "refId": "A",
           "queryType": "range"
@@ -113,8 +86,8 @@
     },
     {
       "id": 3,
-      "title": "Error Log Stream",
-      "description": "All ERROR-level logs across all agents and tools.",
+      "title": "LLM Call Log Stream",
+      "description": "One log record per LLM invocation — agent name, model, input and output token counts.",
       "type": "logs",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
       "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
@@ -126,7 +99,7 @@
       },
       "targets": [
         {
-          "expr": "{service_name=\"supply-chain-agent\"} | json | level=~\"(?i)error\"",
+          "expr": "{service_name=\"supply-chain-agent\", scope_name=\"supply_chain_agent.llm\"}",
           "legendFormat": "",
           "refId": "A",
           "queryType": "range"
@@ -135,27 +108,31 @@
     },
     {
       "id": 4,
-      "title": "Trace Search — Policy Agent Errors",
-      "description": "TraceQL search for policy agent spans with error status. Click a row to open the full trace.",
-      "type": "traces",
-      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
-      "datasource": {"type": "tempo", "uid": "${DS_TEMPO}"},
-      "options": {},
+      "title": "Error Log Stream",
+      "description": "All ERROR-level logs across all agents and tools.",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showTime": true,
+        "sortOrder": "Descending"
+      },
       "targets": [
         {
-          "datasource": {"type": "tempo", "uid": "${DS_TEMPO}"},
-          "queryType": "traceql",
-          "query": "{span.agent.name=\"policy\" && status=error}",
+          "expr": "{service_name=\"supply-chain-agent\", severity_text=\"ERROR\"}",
+          "legendFormat": "",
           "refId": "A",
-          "limit": 20
+          "queryType": "range"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Log Volume by Level",
+      "title": "Log Volume by Severity",
       "type": "timeseries",
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 26},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 24},
       "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
       "fieldConfig": {
         "defaults": {
@@ -163,16 +140,16 @@
           "custom": {"lineWidth": 2, "fillOpacity": 10}
         },
         "overrides": [
-          {"matcher": {"id": "byName", "options": "error"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
-          {"matcher": {"id": "byName", "options": "warn"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
-          {"matcher": {"id": "byName", "options": "info"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]}
+          {"matcher": {"id": "byName", "options": "ERROR"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "WARN"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+          {"matcher": {"id": "byName", "options": "INFO"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]}
         ]
       },
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (level) (rate({service_name=\"supply-chain-agent\"} | json | level != \"\" [$__interval]))",
-          "legendFormat": "{{level}}",
+          "expr": "sum by (severity_text) (count_over_time({service_name=\"supply-chain-agent\"} [$__interval]))",
+          "legendFormat": "{{severity_text}}",
           "refId": "A",
           "queryType": "range"
         }
@@ -180,10 +157,10 @@
     },
     {
       "id": 6,
-      "title": "Log Count by Agent",
-      "description": "Activity heatmap — which agents are logging most often.",
+      "title": "Activity by Agent Scope",
+      "description": "Log volume per agent scope — which agents are most active.",
       "type": "timeseries",
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 26},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 24},
       "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
       "fieldConfig": {
         "defaults": {
@@ -194,8 +171,8 @@
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (agent_name) (rate({service_name=\"supply-chain-agent\", agent_name=~\".+\"} | json [$__interval]))",
-          "legendFormat": "{{agent_name}}",
+          "expr": "sum by (scope_name) (count_over_time({service_name=\"supply-chain-agent\", scope_name=~\"supply_chain_agent\\\\..+\"} [$__interval]))",
+          "legendFormat": "{{scope_name}}",
           "refId": "A",
           "queryType": "range"
         }

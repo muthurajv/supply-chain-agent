@@ -4,9 +4,10 @@ import json
 
 from langchain_core.messages import AIMessage, SystemMessage
 
+from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
-from app.observability.spans import agent_span
+from app.observability.spans import agent_span, record_llm_usage
 
 from .state import GraphState
 
@@ -60,6 +61,7 @@ async def supervisor(state: GraphState) -> dict:
             AIMessage(content=f"Current state:\n{_state_summary(state)}"),
         ]
         response = await llm.ainvoke(messages)
+        record_llm_usage("supervisor", response, get_settings().azure_openai_deployment)
         result = json.loads(response.content)
         next_agent = result.get("next", "END")
 

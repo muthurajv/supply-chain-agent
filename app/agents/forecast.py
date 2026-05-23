@@ -5,9 +5,10 @@ import json
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
+from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
-from app.observability.spans import agent_span
+from app.observability.spans import agent_span, record_llm_usage
 from app.tools.sap_tools import get_shipment_history
 
 from .state import GraphState
@@ -47,6 +48,7 @@ async def forecast_node(state: GraphState) -> Command:
                 "content": f"Material: {material_id}\nHistory ({len(history)} records):\n{json.dumps(history, default=str)}",
             },
         ])
+        record_llm_usage("forecast", response, get_settings().azure_openai_deployment)
 
         result = json.loads(response.content)
         span.set_attribute(Attr.FORECAST_QTY, result.get("forecast_qty", 0))

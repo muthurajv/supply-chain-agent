@@ -127,17 +127,22 @@
     },
     {
       "id": 3,
-      "title": "LLM Token Spend per Agent (24 h)",
-      "description": "Counts log records containing LLM calls per agent. Install opentelemetry-instrumentation-openai-v2 for exact token counts.",
-      "type": "barchart",
+      "title": "LLM Calls per Agent",
+      "description": "Rate of LLM invocations per agent — one record logged per call via record_llm_usage().",
+      "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
       "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
-      "fieldConfig": {"defaults": {"unit": "short"}},
-      "options": {"orientation": "vertical", "legend": {"displayMode": "list", "placement": "bottom"}},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {"lineWidth": 2, "fillOpacity": 10}
+        }
+      },
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
       "targets": [
         {
-          "expr": "sum by (scope_name) (count_over_time({service_name=\"supply-chain-agent\", scope_name=~\"supply_chain_agent\\\\..+\"} [24h]))",
-          "legendFormat": "{{scope_name}}",
+          "expr": "sum by (agent_name) (count_over_time({service_name=\"supply-chain-agent\", scope_name=\"supply_chain_agent.llm\"} [$__interval]))",
+          "legendFormat": "{{agent_name}}",
           "refId": "A",
           "queryType": "range"
         }
@@ -174,10 +179,46 @@
       ]
     },
     {
+      "id": 7,
+      "title": "Input Tokens per Agent (24 h)",
+      "description": "Total prompt tokens consumed per agent over the last 24 hours.",
+      "type": "barchart",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "options": {"orientation": "vertical", "legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (agent_name) (sum_over_time({service_name=\"supply-chain-agent\", scope_name=\"supply_chain_agent.llm\"} | unwrap gen_ai_usage_input_tokens [24h]))",
+          "legendFormat": "{{agent_name}}",
+          "refId": "A",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Output Tokens per Agent (24 h)",
+      "description": "Total completion tokens generated per agent over the last 24 hours.",
+      "type": "barchart",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "loki", "uid": "${DS_LOKI}"},
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "options": {"orientation": "vertical", "legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (agent_name) (sum_over_time({service_name=\"supply-chain-agent\", scope_name=\"supply_chain_agent.llm\"} | unwrap gen_ai_usage_output_tokens [24h]))",
+          "legendFormat": "{{agent_name}}",
+          "refId": "A",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
       "id": 5,
       "title": "Active LangGraph Runs",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "fieldConfig": {
         "defaults": {
@@ -205,7 +246,7 @@
       "id": 6,
       "title": "Approval Queue Depth",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 16},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
       "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
       "fieldConfig": {
         "defaults": {
