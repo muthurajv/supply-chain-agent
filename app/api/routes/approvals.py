@@ -19,14 +19,10 @@ from app.observability.spans import tool_span
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
 
-_meter = get_meter()
-_cycle_histogram = _meter.create_histogram(
-    "approval.cycle_duration_seconds",
-    unit="s",
-    description="Time from proposal creation to human approval decision",
-)
-
-# Observable gauge: updated by list_pending_approvals on each call.
+# Instruments are created lazily so they bind to the real MeterProvider
+# (set by setup_otel()) rather than the no-op provider active at import time.
+_cycle_histogram = None
+_gauge_registered = False
 _pending_count: int = 0
 
 
@@ -34,11 +30,26 @@ def _observe_queue_depth(_: CallbackOptions) -> list[Observation]:
     return [Observation(_pending_count)]
 
 
-_meter.create_observable_gauge(
-    "approval_queue_depth",
-    callbacks=[_observe_queue_depth],
-    description="Number of pending approvals in the queue",
-)
+def _get_cycle_histogram():
+    global _cycle_histogram
+    if _cycle_histogram is None:
+        _cycle_histogram = get_meter().create_histogram(
+            "approval.cycle_duration_seconds",
+            unit="s",
+            description="Time from proposal creation to human approval decision",
+        )
+    return _cycle_histogram
+
+
+def _ensure_gauge() -> None:
+    global _gauge_registered
+    if not _gauge_registered:
+        get_meter().create_observable_gauge(
+            "approval_queue_depth",
+            callbacks=[_observe_queue_depth],
+            description="Number of pending approvals in the queue",
+        )
+        _gauge_registered = True
 
 
 class ApprovalDecision(BaseModel):
@@ -74,6 +85,7 @@ async def list_pending_approvals():
             })
         global _pending_count
         _pending_count = len(items)
+        _ensure_gauge()
         return {"approvals": items, "count": len(items)}
     finally:
         await client.close()
@@ -131,7 +143,7 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
             await container.upsert_item(item)
             span.set_attribute(Attr.POLICY_OUTCOME, item["status"])
         if cycle_secs is not None:
-            _cycle_histogram.record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
+            _get_cycle_histogram().record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
 
         # Resume the paused LangGraph thread so the policy agent can continue.
         thread_id = item.get("thread_id")
