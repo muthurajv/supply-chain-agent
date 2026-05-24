@@ -36,6 +36,14 @@ def _reset_metrics_module(monkeypatch):
         "_compliance_checks_total",
         "_compliance_flags_total",
         "_audit_records_total",
+        # New instruments
+        "_http_request_histogram",
+        "_approval_cycle_histogram",
+        "_supervisor_routing_total",
+        "_inventory_below_safety_stock_total",
+        "_procurement_recommendations_total",
+        "_forecast_confidence_histogram",
+        "_rag_retrieval_score_histogram",
     ]:
         monkeypatch.setattr(m, attr, None)
 
@@ -222,3 +230,76 @@ class TestHumanReviewQueueDepth:
         observations = m._observe_queue_depth(CallbackOptions())
         assert len(observations) == 1
         assert observations[0].value == 7
+
+
+# ---------------------------------------------------------------------------
+# New domain metrics — singleton and name checks
+# ---------------------------------------------------------------------------
+
+class TestNewDomainMetrics:
+    def test_new_singletons_none_before_first_call(self, monkeypatch):
+        import app.observability.metrics as m
+        _reset_metrics_module(monkeypatch)
+        assert m._http_request_histogram is None
+        assert m._approval_cycle_histogram is None
+        assert m._supervisor_routing_total is None
+        assert m._inventory_below_safety_stock_total is None
+        assert m._procurement_recommendations_total is None
+        assert m._forecast_confidence_histogram is None
+        assert m._rag_retrieval_score_histogram is None
+
+    def test_http_request_histogram_singleton(self, reader_and_meter):
+        from app.observability.metrics import http_request_histogram
+        assert http_request_histogram() is http_request_histogram()
+
+    def test_http_request_histogram_name(self, reader_and_meter):
+        from app.observability.metrics import http_request_histogram
+        assert http_request_histogram().name == "http_request_duration_seconds"
+
+    def test_approval_cycle_histogram_singleton(self, reader_and_meter):
+        from app.observability.metrics import approval_cycle_histogram
+        assert approval_cycle_histogram() is approval_cycle_histogram()
+
+    def test_approval_cycle_histogram_name(self, reader_and_meter):
+        from app.observability.metrics import approval_cycle_histogram
+        assert approval_cycle_histogram().name == "approval_cycle_duration_seconds"
+
+    def test_supervisor_routing_counter_singleton(self, reader_and_meter):
+        from app.observability.metrics import supervisor_routing_counter
+        assert supervisor_routing_counter() is supervisor_routing_counter()
+
+    def test_supervisor_routing_counter_name(self, reader_and_meter):
+        from app.observability.metrics import supervisor_routing_counter
+        assert supervisor_routing_counter().name == "supervisor_routing_total"
+
+    def test_inventory_below_safety_stock_singleton(self, reader_and_meter):
+        from app.observability.metrics import inventory_below_safety_stock_counter
+        assert inventory_below_safety_stock_counter() is inventory_below_safety_stock_counter()
+
+    def test_inventory_below_safety_stock_name(self, reader_and_meter):
+        from app.observability.metrics import inventory_below_safety_stock_counter
+        assert inventory_below_safety_stock_counter().name == "inventory_below_safety_stock_total"
+
+    def test_procurement_recommendations_singleton(self, reader_and_meter):
+        from app.observability.metrics import procurement_recommendations_counter
+        assert procurement_recommendations_counter() is procurement_recommendations_counter()
+
+    def test_procurement_recommendations_name(self, reader_and_meter):
+        from app.observability.metrics import procurement_recommendations_counter
+        assert procurement_recommendations_counter().name == "procurement_recommendations_total"
+
+    def test_forecast_confidence_histogram_singleton(self, reader_and_meter):
+        from app.observability.metrics import forecast_confidence_histogram
+        assert forecast_confidence_histogram() is forecast_confidence_histogram()
+
+    def test_forecast_confidence_histogram_name(self, reader_and_meter):
+        from app.observability.metrics import forecast_confidence_histogram
+        assert forecast_confidence_histogram().name == "forecast_confidence_range_units"
+
+    def test_rag_retrieval_score_histogram_singleton(self, reader_and_meter):
+        from app.observability.metrics import rag_retrieval_score_histogram
+        assert rag_retrieval_score_histogram() is rag_retrieval_score_histogram()
+
+    def test_rag_retrieval_score_histogram_name(self, reader_and_meter):
+        from app.observability.metrics import rag_retrieval_score_histogram
+        assert rag_retrieval_score_histogram().name == "rag_retrieval_score"

@@ -8,6 +8,7 @@ from langchain_core.tools import tool
 
 from app.config import get_settings
 from app.observability.attributes import Attr
+from app.observability.metrics import rag_retrieval_score_histogram
 from app.observability.spans import rag_span
 
 _API_VERSION = "2024-05-01-preview"
@@ -72,6 +73,8 @@ async def retrieve_policy_docs(
         ]
 
         span.set_attribute(Attr.RAG_RESULT_COUNT, len(docs))
+        for doc in docs:
+            rag_retrieval_score_histogram().record(doc["score"], {"index_name": index_name})
         return docs
 
 
@@ -106,4 +109,6 @@ async def retrieve_episodic_memory(
         ]
 
         span.set_attribute(Attr.RAG_RESULT_COUNT, len(docs))
+        for doc in docs:
+            rag_retrieval_score_histogram().record(doc["score"], {"index_name": index_name})
         return docs

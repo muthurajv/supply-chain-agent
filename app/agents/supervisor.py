@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, SystemMessage
 from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
+from app.observability.metrics import supervisor_routing_counter
 from app.observability.spans import agent_span, record_llm_usage
 
 from .state import GraphState
@@ -66,5 +67,6 @@ async def supervisor(state: GraphState) -> dict:
         next_agent = result.get("next", "END")
 
         span.set_attribute(Attr.AGENT_DECISION, next_agent)
+        supervisor_routing_counter().add(1, {"next_agent": next_agent})
 
     return {"next_agent": next_agent, "turn": turn, "messages": []}

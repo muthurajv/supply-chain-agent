@@ -8,6 +8,7 @@ from langgraph.types import Command
 from app.config import get_settings
 from app.llm.client import get_llm
 from app.observability.attributes import Attr
+from app.observability.metrics import forecast_confidence_histogram
 from app.observability.spans import agent_span, record_llm_usage
 from app.tools.sap_tools import get_shipment_history
 
@@ -53,6 +54,8 @@ async def forecast_node(state: GraphState) -> Command:
         result = json.loads(response.content)
         span.set_attribute(Attr.FORECAST_QTY, result.get("forecast_qty", 0))
         span.set_attribute(Attr.FORECAST_TREND_PCT, result.get("trend_pct", 0))
+        confidence_range = result.get("confidence_high", 0) - result.get("confidence_low", 0)
+        forecast_confidence_histogram().record(confidence_range, {"material_id": material_id})
         span.set_attribute(Attr.AGENT_DECISION, f"forecast={result.get('forecast_qty')}, trend={result.get('trend_pct')}%")
 
         summary = (

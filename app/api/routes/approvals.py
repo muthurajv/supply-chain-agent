@@ -14,24 +14,10 @@ from app.config import get_settings
 from app.memory.checkpointer import CosmosDBCheckpointer
 from app.observability.attributes import Attr
 from app.observability.loki import push_approval_audit
-from app.observability.metrics import set_human_review_queue_depth
-from app.observability.otel import get_meter
+from app.observability.metrics import approval_cycle_histogram, set_human_review_queue_depth
 from app.observability.spans import tool_span
 
 router = APIRouter(prefix="/approvals", tags=["approvals"])
-
-_cycle_histogram = None
-
-
-def _get_cycle_histogram():
-    global _cycle_histogram
-    if _cycle_histogram is None:
-        _cycle_histogram = get_meter().create_histogram(
-            "approval.cycle_duration_seconds",
-            unit="s",
-            description="Time from proposal creation to human approval decision",
-        )
-    return _cycle_histogram
 
 
 class ApprovalDecision(BaseModel):
@@ -123,7 +109,7 @@ async def decide_approval(approval_id: str, payload: ApprovalDecision):
             await container.upsert_item(item)
             span.set_attribute(Attr.POLICY_OUTCOME, item["status"])
         if cycle_secs is not None:
-            _get_cycle_histogram().record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
+            approval_cycle_histogram().record(cycle_secs, {Attr.POLICY_OUTCOME: item["status"]})
 
         await push_approval_audit(
             approval_id=approval_id,

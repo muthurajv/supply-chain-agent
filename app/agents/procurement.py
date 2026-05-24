@@ -5,6 +5,7 @@ from langgraph.types import Command
 
 from app.models.procurement import ProcurementRecommendation
 from app.observability.attributes import Attr
+from app.observability.metrics import procurement_recommendations_counter
 from app.observability.spans import agent_span
 from app.tools.sap_tools import get_preferred_vendors
 
@@ -86,6 +87,7 @@ async def procurement_node(state: GraphState) -> Command:
         span.set_attribute(Attr.PROCUREMENT_COST, est_cost)
         span.set_attribute(Attr.PROCUREMENT_URGENCY, urgency)
         span.set_attribute(Attr.AGENT_DECISION, f"reorder_qty={reorder_qty}, cost={est_cost}, urgency={urgency}")
+        procurement_recommendations_counter().add(1, {"urgency": urgency, "vendor_id": vendor_id})
 
         return Command(
             goto="supervisor",

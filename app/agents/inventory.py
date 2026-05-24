@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 
 from app.observability.attributes import Attr
+from app.observability.metrics import inventory_below_safety_stock_counter
 from app.observability.spans import agent_span
 from app.tools.sap_tools import get_inventory, get_stock_locations
 
@@ -30,6 +31,8 @@ async def inventory_node(state: GraphState) -> Command:
         locations = await get_stock_locations.ainvoke({"material_id": material_id})
 
         below_safety = inv["on_hand_qty"] < inv["safety_stock"]
+        if below_safety:
+            inventory_below_safety_stock_counter().add(1, {"material_id": material_id})
         summary = (
             f"Material {material_id} ({inv['description']}): "
             f"{inv['on_hand_qty']} {inv['unit']} on hand across {len(locations)} location(s). "
